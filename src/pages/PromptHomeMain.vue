@@ -153,9 +153,6 @@
                 <footer class="bottom-actions">
                   <button type="button" class="primary" :disabled="saving" @click="savePrompt">保存</button>
                   <button type="button" class="light" :disabled="saving" @click="previewFromForm">预览渲染</button>
-                  <button type="button" class="light" :disabled="saving" @click="openAiConfig">AI 配置</button>
-                  <button type="button" class="light" :disabled="saving" @click="openAiPolish">AI 润色</button>
-                  <button type="button" class="light" :disabled="saving" @click="openAiTest">AI 测试</button>
                   <button type="button" class="light" @click="cancelEdit">取消</button>
                 </footer>
               </template>
@@ -413,7 +410,7 @@ const route = useRoute();
 const router = useRouter();
 
 const refreshPromptList = inject<() => Promise<void>>("refreshPromptList", async () => {});
-const promptHubToast = inject<(message: string, durationMs?: number) => void>("promptHubToast", () => {});
+const promptCafeToast = inject<(message: string, durationMs?: number) => void>("promptCafeToast", () => {});
 
 const selectedId = ref<string | null>(null);
 const detail = ref<PromptDetail | null>(null);
@@ -439,7 +436,7 @@ const errorMsg = ref("");
 const saving = ref(false);
 
 function showToast(message: string, durationMs = 2800) {
-  promptHubToast(message, durationMs);
+  promptCafeToast(message, durationMs);
 }
 
 const shellRef = ref<HTMLElement | null>(null);

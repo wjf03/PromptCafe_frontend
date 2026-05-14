@@ -1,5 +1,5 @@
 <template>
-  <WorkspaceLayout title="PromptHub 网页版" :toast-message="toastMessage">
+  <WorkspaceLayout title="PromptCafe" :toast-message="toastMessage">
     <template #actions>
       <button type="button" class="text-btn" :disabled="listLoading" @click="refreshList">刷新</button>
       <button type="button" class="text-btn primary-inline" @click="startCreate">+ 新建</button>
@@ -363,7 +363,7 @@ function listDescTitle(item: PromptSummary): string {
 }
 
 provide("refreshPromptList", refreshList);
-provide("promptHubToast", showToast);
+provide("promptCafeToast", showToast);
 
 onMounted(() => {
   void refreshList();

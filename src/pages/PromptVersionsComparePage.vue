@@ -13,94 +13,35 @@
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         <div v-if="loading" class="muted compare-loading">加载对比…</div>
 
-        <div v-else-if="diffData" class="compare-diff-body">
-          <section class="diff-block">
-            <h4 class="diff-block-title">标题</h4>
-            <div class="diff-cols">
-              <textarea
-                readonly
-                class="compare-readonly-ta"
-                rows="2"
-                :class="{ 'compare-field-diff': titleChanged }"
-                :value="diffData.fromVersion.title"
-              />
-              <textarea
-                readonly
-                class="compare-readonly-ta"
-                rows="2"
-                :class="{ 'compare-field-diff': titleChanged }"
-                :value="diffData.toVersion.title"
-              />
-            </div>
-          </section>
+        <div v-else-if="diffData" class="compare-merge-root">
+          <p class="merge-legend muted">
+            与编辑器合并视图类似：左侧为较旧版本行号与内容，右侧为较新版本；<span class="lg-del">删除</span>、<span class="lg-add">新增</span>、<span class="lg-chg">修改</span>以底色区分。
+          </p>
 
-          <section class="diff-block">
-            <h4 class="diff-block-title">简介</h4>
-            <div class="diff-cols">
-              <textarea
-                readonly
-                class="compare-readonly-ta compare-readonly-tall"
-                rows="5"
-                :class="{ 'compare-field-diff': descChanged }"
-                :value="descFromLeft"
-              />
-              <textarea
-                readonly
-                class="compare-readonly-ta compare-readonly-tall"
-                rows="5"
-                :class="{ 'compare-field-diff': descChanged }"
-                :value="descFromRight"
-              />
-            </div>
-          </section>
-
-          <section class="diff-block">
-            <h4 class="diff-block-title">系统提示词</h4>
-            <div class="diff-cols">
-              <div class="diff-textbox diff-textbox-code">
-                <div
-                  v-for="(line, i) in systemDiffRows"
-                  :key="'sl-' + i"
-                  class="diff-line pre"
-                  :class="diffLineClass(line, 'left')"
-                >
-                  {{ line.left || " " }}
+          <section v-for="block in mergeBlocks" :key="block.key" class="merge-section">
+            <div class="merge-section-title">{{ block.label }}</div>
+            <div class="merge-editor">
+              <div class="merge-header">
+                <div class="merge-header-cell merge-header-left">
+                  <span class="merge-header-badge">{{ block.leftHeader }}</span>
+                  <span class="merge-header-hint">旧版</span>
+                </div>
+                <div class="merge-header-cell merge-header-right">
+                  <span class="merge-header-badge merge-header-badge-new">{{ block.rightHeader }}</span>
+                  <span class="merge-header-hint">新版</span>
                 </div>
               </div>
-              <div class="diff-textbox diff-textbox-code">
+              <div class="merge-body">
                 <div
-                  v-for="(line, i) in systemDiffRows"
-                  :key="'sr-' + i"
-                  class="diff-line pre"
-                  :class="diffLineClass(line, 'right')"
+                  v-for="(item, i) in block.annotated"
+                  :key="`${block.key}-${i}`"
+                  class="merge-row"
+                  :class="mergeRowClass(item.row)"
                 >
-                  {{ line.right || " " }}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="diff-block">
-            <h4 class="diff-block-title">用户提示词</h4>
-            <div class="diff-cols">
-              <div class="diff-textbox diff-textbox-code">
-                <div
-                  v-for="(line, i) in userDiffRows"
-                  :key="'ul-' + i"
-                  class="diff-line pre"
-                  :class="diffLineClass(line, 'left')"
-                >
-                  {{ line.left || " " }}
-                </div>
-              </div>
-              <div class="diff-textbox diff-textbox-code">
-                <div
-                  v-for="(line, i) in userDiffRows"
-                  :key="'ur-' + i"
-                  class="diff-line pre"
-                  :class="diffLineClass(line, 'right')"
-                >
-                  {{ line.right || " " }}
+                  <span class="merge-gutter merge-ln" aria-hidden="true">{{ item.leftNo }}</span>
+                  <pre class="merge-line merge-line-left" tabindex="-1">{{ lineText(item.row.left) }}</pre>
+                  <span class="merge-gutter merge-ln" aria-hidden="true">{{ item.rightNo }}</span>
+                  <pre class="merge-line merge-line-right" tabindex="-1">{{ lineText(item.row.right) }}</pre>
                 </div>
               </div>
             </div>
@@ -117,8 +58,7 @@ import { useRoute, useRouter } from "vue-router";
 import * as api from "../api/prompts";
 import { ApiError } from "../api/http";
 import type { PromptVersionDiffData } from "../api/types";
-import { alignTextByLines } from "../util/lineDiff";
-import { diffLineClass } from "../util/promptVersionDiffDisplay";
+import { alignTextByLines, type AlignedLineRow } from "../util/lineDiff";
 
 const route = useRoute();
 const router = useRouter();
@@ -136,38 +76,76 @@ const pairLabel = computed(() => {
   if (!diffData.value) return "";
   const a = diffData.value.fromVersion.versionNumber;
   const b = diffData.value.toVersion.versionNumber;
-  return `v${a} ↔ v${b}`;
+  return `对比 v${a}（左）与 v${b}（右）`;
 });
 
-const titleChanged = computed(() => {
-  const d = diffData.value;
-  if (!d) return false;
-  return (d.fromVersion.title ?? "") !== (d.toVersion.title ?? "");
-});
-
-const descChanged = computed(() => {
-  const d = diffData.value;
-  if (!d) return false;
-  return normDesc(d.fromVersion.description) !== normDesc(d.toVersion.description);
-});
-
-function normDesc(v: string | null | undefined) {
-  return (v ?? "").trim();
+function lineText(s: string) {
+  return s.length ? s : " ";
 }
 
-const descFromLeft = computed(() => diffData.value?.fromVersion.description ?? "");
-const descFromRight = computed(() => diffData.value?.toVersion.description ?? "");
+function annotateRows(rows: AlignedLineRow[]) {
+  let l = 0;
+  let r = 0;
+  return rows.map((row) => {
+    let leftNo = "";
+    let rightNo = "";
+    if (row.leftKind !== "blank") {
+      l += 1;
+      leftNo = String(l);
+    }
+    if (row.rightKind !== "blank") {
+      r += 1;
+      rightNo = String(r);
+    }
+    return { row, leftNo, rightNo };
+  });
+}
 
-const systemDiffRows = computed(() => {
+function mergeRowClass(row: AlignedLineRow): string {
+  if (row.leftKind === "same" && row.rightKind === "same") return "merge-row--same";
+  if (row.leftKind === "removed" && row.rightKind === "blank") return "merge-row--del";
+  if (row.leftKind === "blank" && row.rightKind === "added") return "merge-row--add";
+  if (row.leftKind === "changed" && row.rightKind === "changed") return "merge-row--chg";
+  return "";
+}
+
+const mergeBlocks = computed(() => {
   const d = diffData.value;
   if (!d) return [];
-  return alignTextByLines(d.fromVersion.systemPrompt ?? "", d.toVersion.systemPrompt ?? "");
-});
-
-const userDiffRows = computed(() => {
-  const d = diffData.value;
-  if (!d) return [];
-  return alignTextByLines(d.fromVersion.userPrompt ?? "", d.toVersion.userPrompt ?? "");
+  const from = d.fromVersion;
+  const to = d.toVersion;
+  const lH = `v${from.versionNumber}`;
+  const rH = `v${to.versionNumber}`;
+  return [
+    {
+      key: "title",
+      label: "标题",
+      leftHeader: lH,
+      rightHeader: rH,
+      annotated: annotateRows(alignTextByLines(from.title ?? "", to.title ?? ""))
+    },
+    {
+      key: "desc",
+      label: "简介",
+      leftHeader: lH,
+      rightHeader: rH,
+      annotated: annotateRows(alignTextByLines(from.description ?? "", to.description ?? ""))
+    },
+    {
+      key: "system",
+      label: "系统提示词",
+      leftHeader: lH,
+      rightHeader: rH,
+      annotated: annotateRows(alignTextByLines(from.systemPrompt ?? "", to.systemPrompt ?? ""))
+    },
+    {
+      key: "user",
+      label: "用户提示词",
+      leftHeader: lH,
+      rightHeader: rH,
+      annotated: annotateRows(alignTextByLines(from.userPrompt ?? "", to.userPrompt ?? ""))
+    }
+  ];
 });
 
 function goVersions() {
@@ -189,21 +167,23 @@ async function loadPromptTitle() {
 
 async function loadDiff() {
   const id = promptId.value;
-  const from = fromVN.value;
-  const to = toVN.value;
+  const rawFrom = fromVN.value;
+  const rawTo = toVN.value;
   errorMsg.value = "";
   diffData.value = null;
   if (!id) {
     errorMsg.value = "无效的 Prompt ID";
     return;
   }
-  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+  if (!Number.isFinite(rawFrom) || !Number.isFinite(rawTo)) {
     errorMsg.value = "请从「历史版本」页勾选两个版本后进入对比（缺少 from / to 版本号）。";
     return;
   }
+  const lo = Math.min(rawFrom, rawTo);
+  const hi = Math.max(rawFrom, rawTo);
   loading.value = true;
   try {
-    diffData.value = await api.diffPromptVersions(id, from, to);
+    diffData.value = await api.diffPromptVersions(id, lo, hi);
   } catch (e) {
     errorMsg.value = e instanceof ApiError ? e.message : String(e);
   } finally {
@@ -233,9 +213,12 @@ watch([promptId, () => route.query.from, () => route.query.to], () => {
   display: flex;
   flex-direction: column;
 }
+
 .compare-embed-pane {
-  max-width: 1000px;
+  max-width: min(1280px, 100%);
+  width: 100%;
 }
+
 .subpage-topbar {
   display: flex;
   align-items: flex-start;
@@ -243,115 +226,243 @@ watch([promptId, () => route.query.from, () => route.query.to], () => {
   gap: 12px;
   margin-bottom: 12px;
 }
+
 .subpage-heading {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
   color: #1f2937;
 }
+
 .compare-prompt-title {
   margin: 0 0 4px;
   font-size: 16px;
   font-weight: 600;
   color: #334155;
 }
+
 .compare-pair {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   font-size: 13px;
 }
+
 .compare-loading {
   padding: 20px 0;
   font-size: 13px;
 }
-.compare-diff-body {
-  padding-top: 4px;
+
+.compare-merge-root {
+  padding-top: 2px;
 }
-.diff-block {
-  margin-bottom: 20px;
+
+.merge-legend {
+  font-size: 12px;
+  margin: 0 0 14px;
+  line-height: 1.5;
 }
-.diff-block-title {
-  margin: 0 0 8px;
-  font-size: 13px;
+
+.lg-del {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(197, 48, 48, 0.12);
+  color: #b42318;
+}
+
+.lg-add {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(26, 127, 55, 0.12);
+  color: #116329;
+}
+
+.lg-chg {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(154, 103, 0, 0.14);
+  color: #7c4a00;
+}
+
+.merge-section {
+  margin-bottom: 22px;
+}
+
+.merge-section-title {
+  font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 0 0 6px 2px;
 }
-.diff-cols {
+
+.merge-editor {
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.merge-header {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.compare-readonly-ta {
-  width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
-  min-height: 44px;
-  padding: 8px 10px;
-  font-size: 13px;
-  line-height: 1.45;
-  font-family: inherit;
-  color: #374151;
-  border: 1px solid #e2e6f0;
-  border-radius: 10px;
-  background: #fff;
-}
-.compare-readonly-ta:focus {
-  outline: none;
-  border-color: #93b4f7;
-  box-shadow: 0 0 0 2px rgba(147, 180, 247, 0.2);
-}
-.compare-readonly-tall {
-  min-height: 120px;
-}
-.compare-field-diff {
-  border-color: #f59e0b;
-  background: #fffbeb;
-}
-.diff-textbox {
-  min-width: 0;
-  border: 1px solid #e2e6f0;
-  border-radius: 10px;
-  background: #fff;
-  padding: 8px 10px;
-  box-sizing: border-box;
-}
-.diff-textbox-tall {
-  max-height: min(200px, 28vh);
-  overflow: auto;
-}
-.diff-textbox-code {
-  max-height: min(360px, 42vh);
-  overflow: auto;
-  background: #fafbfe;
-}
-.diff-line {
-  padding: 2px 0;
+  border-bottom: 1px solid #d0d7de;
+  background: linear-gradient(180deg, #f6f8fa 0%, #eff2f5 100%);
   font-size: 12px;
-  line-height: 1.45;
+  font-weight: 600;
+  color: #24292f;
+}
+
+.merge-header-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.merge-header-left {
+  border-right: 1px solid #d0d7de;
+}
+
+.merge-header-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eaeef2;
+  color: #24292f;
+  font-variant-numeric: tabular-nums;
+}
+
+.merge-header-badge-new {
+  background: #ddf4ff;
+  color: #0969da;
+}
+
+.merge-header-hint {
+  font-weight: 500;
+  color: #656d76;
+}
+
+.merge-body {
+  max-height: min(320px, 38vh);
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.merge-section:last-child .merge-body {
+  max-height: min(420px, 48vh);
+}
+
+.merge-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px minmax(0, 1fr);
+  border-bottom: 1px solid #f0f3f6;
+  min-height: 22px;
+}
+
+.merge-row:last-child {
+  border-bottom: none;
+}
+
+.merge-gutter {
+  flex-shrink: 0;
+  text-align: right;
+  padding: 0 8px 0 6px;
+  user-select: none;
+  color: #656d76;
+  background: #f6f8fa;
+  border-right: 1px solid #eef1f4;
+  font-variant-numeric: tabular-nums;
+}
+
+.merge-ln {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.merge-line {
+  margin: 0;
+  padding: 0 10px 0 8px;
   white-space: pre-wrap;
   word-break: break-word;
+  color: #24292f;
+  background: #ffffff;
+  border-right: 1px solid #f0f3f6;
+  min-width: 0;
 }
-.diff-line.diff-removed {
-  background: #fee2e2;
+
+.merge-line-right {
+  border-right: none;
 }
-.diff-line.diff-added {
-  background: #dcfce7;
+
+.merge-row--same .merge-line {
+  background: #ffffff;
 }
-.diff-line.diff-changed {
-  background: #fef9c3;
+
+.merge-row--del .merge-gutter:first-child,
+.merge-row--del .merge-line-left {
+  background: #ffebe9;
 }
-.diff-line.diff-blank {
-  background: #f8fafc;
-  color: #94a3b8;
+
+.merge-row--del .merge-line-left {
+  box-shadow: inset 3px 0 0 0 #cf222e;
 }
+
+.merge-row--del .merge-gutter:nth-child(3),
+.merge-row--del .merge-line-right {
+  background: #f6f8fa;
+  color: #8c959f;
+}
+
+.merge-row--add .merge-gutter:first-child,
+.merge-row--add .merge-line-left {
+  background: #f6f8fa;
+  color: #8c959f;
+}
+
+.merge-row--add .merge-gutter:nth-child(3),
+.merge-row--add .merge-line-right {
+  background: #dafbe1;
+}
+
+.merge-row--add .merge-line-right {
+  box-shadow: inset 3px 0 0 0 #1a7f37;
+}
+
+.merge-row--chg .merge-gutter:first-child,
+.merge-row--chg .merge-line-left {
+  background: #fff8c5;
+  box-shadow: inset 3px 0 0 0 #9a6700;
+}
+
+.merge-row--chg .merge-gutter:nth-child(3),
+.merge-row--chg .merge-line-right {
+  background: #fff8c5;
+  box-shadow: inset 3px 0 0 0 #9a6700;
+}
+
 .meta {
   color: #6b7280;
 }
+
 .muted {
   color: #9099ab;
 }
-@media (max-width: 900px) {
-  .diff-cols {
-    grid-template-columns: 1fr;
+
+@media (max-width: 720px) {
+  .merge-row {
+    grid-template-columns: 36px minmax(0, 1fr) 36px minmax(0, 1fr);
+    font-size: 11px;
+  }
+
+  .merge-body {
+    max-height: 55vh;
   }
 }
 </style>

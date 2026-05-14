@@ -1,7 +1,7 @@
 <template>
   <div class="login-page">
     <div class="login-card">
-      <h1>登录 PromptHub</h1>
+      <h1>登录 PromptCafe</h1>
       <p class="hint">
         使用用户名或邮箱登录，进入你的 Prompt 工作台。
       </p>

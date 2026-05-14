@@ -1,7 +1,10 @@
 <template>
   <div class="prompt-page">
     <aside class="left-nav">
-      <div class="brand">PC</div>
+      <div class="brand" title="PromptCafe">
+        <span class="brand-line">Prompt</span>
+        <span class="brand-line">Cafe</span>
+      </div>
       <nav class="main-nav">
         <RouterLink to="/" class="nav-link" active-class="active">我的 Prompt</RouterLink>
         <RouterLink to="/community" class="nav-link" active-class="active">社区</RouterLink>

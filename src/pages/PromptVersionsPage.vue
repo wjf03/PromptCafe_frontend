@@ -62,11 +62,22 @@
                     @change="onCompareCheck(row.versionNumber, ($event.target as HTMLInputElement).checked)"
                   />
                 </td>
-                <td>v{{ row.versionNumber }}</td>
+                <td class="td-version">
+                  <span>v{{ row.versionNumber }}</span>
+                  <span v-if="isCurrentVersionRow(row)" class="current-ver-tag">(当前版本)</span>
+                </td>
                 <td class="muted td-time">{{ formatTime(row.createdAt) }}</td>
                 <td class="td-note">{{ row.note?.trim() || "—" }}</td>
                 <td class="col-actions">
-                  <button type="button" class="text-btn sm" @click="runRollback(row)">回溯</button>
+                  <button
+                    v-if="!isCurrentVersionRow(row)"
+                    type="button"
+                    class="text-btn sm"
+                    @click="runRollback(row)"
+                  >
+                    回溯
+                  </button>
+                  <span v-else class="muted td-no-action">—</span>
                 </td>
               </tr>
             </tbody>
@@ -87,11 +98,12 @@ import type { PromptVersionRecord } from "../api/types";
 const route = useRoute();
 const router = useRouter();
 
-const promptHubToast = inject<(message: string, durationMs?: number) => void>("promptHubToast", () => {});
+const promptCafeToast = inject<(message: string, durationMs?: number) => void>("promptCafeToast", () => {});
 
 const promptId = computed(() => String(route.params.id ?? "").trim());
 
 const promptTitle = ref("");
+const promptCurrentVersion = ref<number | null>(null);
 const rows = ref<PromptVersionRecord[]>([]);
 const loading = ref(false);
 const errorMsg = ref("");
@@ -108,7 +120,7 @@ function formatTime(iso: string) {
 }
 
 function showToast(message: string) {
-  promptHubToast(message, 2400);
+  promptCafeToast(message, 2400);
 }
 
 function goBack() {
@@ -123,9 +135,19 @@ async function loadPromptTitle() {
   try {
     const d = await api.getPrompt(id);
     promptTitle.value = d.title;
+    promptCurrentVersion.value = d.currentVersion;
   } catch {
     promptTitle.value = "";
+    promptCurrentVersion.value = null;
   }
+}
+
+function isCurrentVersionRow(row: PromptVersionRecord): boolean {
+  const cv = promptCurrentVersion.value;
+  if (cv != null) return row.versionNumber === cv;
+  if (!rows.value.length) return false;
+  const maxV = Math.max(...rows.value.map((r) => r.versionNumber));
+  return row.versionNumber === maxV;
 }
 
 async function loadVersions() {
@@ -137,7 +159,8 @@ async function loadVersions() {
   loading.value = true;
   errorMsg.value = "";
   try {
-    rows.value = await api.listPromptVersions(id);
+    const list = await api.listPromptVersions(id);
+    rows.value = [...list].sort((a, b) => b.versionNumber - a.versionNumber);
   } catch (e) {
     errorMsg.value = e instanceof ApiError ? e.message : String(e);
     rows.value = [];
@@ -168,10 +191,12 @@ function goCompare() {
   const id = promptId.value;
   if (!id || comparePick.value.length !== 2) return;
   const [a, b] = comparePick.value;
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
   router.push({
     name: "prompt-versions-compare",
     params: { id },
-    query: { from: String(a), to: String(b) }
+    query: { from: String(lo), to: String(hi) }
   });
 }
 
@@ -298,38 +323,70 @@ watch(promptId, () => {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 .version-table th,
 .version-table td {
-  padding: 8px 10px;
+  padding: 10px 12px;
+  min-height: 48px;
   text-align: left;
   border-bottom: 1px solid #f0f2f7;
-  vertical-align: top;
+  vertical-align: middle;
+  line-height: 1.35;
+  box-sizing: border-box;
 }
 .version-table th {
   background: #f8fafc;
   color: #64748b;
   font-weight: 600;
   font-size: 12px;
+  vertical-align: middle;
 }
 .version-table tr:last-child td {
   border-bottom: none;
 }
 .col-check {
-  width: 36px;
+  width: 44px;
   text-align: center;
+  padding: 10px 6px;
 }
-.col-actions {
-  width: 72px;
+.col-check input[type="checkbox"] {
+  margin: 0;
+  vertical-align: middle;
+}
+.td-version {
   white-space: nowrap;
+  width: 140px;
+}
+.current-ver-tag {
+  margin-left: 2px;
+  font-weight: 600;
+  color: #0969da;
+}
+.td-no-action {
+  font-size: 12px;
+  display: inline-block;
+  line-height: 1;
 }
 .td-time {
   white-space: nowrap;
   font-size: 12px;
+  width: 168px;
 }
 .td-note {
-  max-width: 280px;
+  max-width: 0;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.col-actions {
+  width: 88px;
+  text-align: center;
+  white-space: nowrap;
+  padding: 10px 8px;
+}
+.col-actions .text-btn {
+  vertical-align: middle;
 }
 .muted {
   color: #9099ab;

@@ -1,7 +1,7 @@
 <template>
   <div class="login-page">
     <div class="login-card">
-      <h1>注册 PromptHub</h1>
+      <h1>注册 PromptCafe</h1>
       <p class="hint">创建账号后将自动登录，并进入 Prompt 工作台。</p>
 
       <div class="form-item">
