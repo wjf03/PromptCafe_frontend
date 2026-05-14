@@ -153,6 +153,8 @@
                 <footer class="bottom-actions">
                   <button type="button" class="primary" :disabled="saving" @click="savePrompt">保存</button>
                   <button type="button" class="light" :disabled="saving" @click="previewFromForm">预览渲染</button>
+                  <button type="button" class="light" :disabled="saving" @click="openAiPolish">AI 润色</button>
+                  <button type="button" class="light" :disabled="saving" @click="openAiTest">AI 测试</button>
                   <button type="button" class="light" @click="cancelEdit">取消</button>
                 </footer>
               </template>
@@ -170,31 +172,7 @@
                 </div>
 
                 <template v-if="aiPanel === 'config'">
-                  <div class="form-grid compact-form">
-                    <label class="fg-label">服务商</label>
-                    <select v-model="aiConfig.provider" class="fg-input">
-                      <option value="openai">OpenAI</option>
-                      <option value="deepseek">DeepSeek</option>
-                      <option value="anthropic">Anthropic</option>
-                      <option value="custom">自定义</option>
-                    </select>
-                    <label class="fg-label">Base URL</label>
-                    <input v-model="aiConfig.baseUrl" class="fg-input" type="url" placeholder="可选" />
-                    <label class="fg-label">API Key</label>
-                    <input v-model="aiConfig.apiKey" class="fg-input" type="password" autocomplete="new-password" />
-                  </div>
-                  <div class="ai-status-row">
-                    <span>密钥：{{ aiKeyStatus?.configured ? "已配置" : "未配置" }}</span>
-                    <span v-if="aiKeyStatus?.maskedKey">{{ aiKeyStatus.maskedKey }}</span>
-                    <span v-if="guestQuota">游客额度：{{ guestQuota.remainingCount }} / {{ guestQuota.dailyLimit }}</span>
-                  </div>
-                  <div class="bottom-actions inline-actions">
-                    <button type="button" class="primary" :disabled="aiLoading" @click="saveAiConfig">保存配置</button>
-                    <button type="button" class="light" :disabled="aiLoading" @click="loadAiStatus">刷新状态</button>
-                    <button type="button" class="danger" :disabled="aiLoading || !aiKeyStatus?.configured" @click="deleteAiConfig">
-                      删除密钥
-                    </button>
-                  </div>
+                  <AIConfigPanel @toast="showToast" />
                 </template>
 
                 <template v-else-if="aiPanel === 'polish'">
@@ -396,14 +374,13 @@ import * as community from "../api/community";
 import { ApiError } from "../api/http";
 import type { PromptDetail, PromptVariableDef } from "../api/types";
 import type {
-  AIApiKeyStatus,
-  AIGuestQuota,
   AIModelProviderItem,
   AIPolishResult,
   AITestRecordDetail,
   AITestRecordListItem,
   AITestResult
 } from "../api/ai";
+import AIConfigPanel from "../components/AIConfigPanel.vue";
 import { markdownToSafeHtml } from "../util/markdown";
 
 const route = useRoute();
@@ -454,8 +431,6 @@ type AiPanel = "config" | "polish" | "test";
 
 const aiPanel = ref<AiPanel | null>(null);
 const aiLoading = ref(false);
-const aiKeyStatus = ref<AIApiKeyStatus | null>(null);
-const guestQuota = ref<AIGuestQuota | null>(null);
 const aiModels = ref<AIModelProviderItem[]>([]);
 const polishResult = ref<AIPolishResult | null>(null);
 const testResult = ref<AITestResult | null>(null);
@@ -465,12 +440,6 @@ const testVariables = reactive<Record<string, string>>({});
 const sharePanelOpen = ref(false);
 const shareLoading = ref(false);
 const shareTagText = ref("");
-
-const aiConfig = reactive({
-  provider: "openai" as ai.AIProvider,
-  baseUrl: "",
-  apiKey: ""
-});
 
 const polishForm = reactive({
   tone: "formal" as ai.AIPolishTone,
@@ -833,25 +802,6 @@ function resetTestVariables() {
   }
 }
 
-async function loadAiStatus() {
-  aiLoading.value = true;
-  errorMsg.value = "";
-  try {
-    const [status, quota] = await Promise.allSettled([ai.getApiKeyStatus(), ai.getGuestQuota()]);
-    if (status.status === "fulfilled") {
-      aiKeyStatus.value = status.value;
-      aiConfig.provider = status.value.provider ?? aiConfig.provider;
-      aiConfig.baseUrl = status.value.baseUrl ?? "";
-    }
-    if (quota.status === "fulfilled") guestQuota.value = quota.value;
-    if (status.status === "rejected" && quota.status === "rejected") throw status.reason;
-  } catch (e) {
-    errorMsg.value = apiMessage(e);
-  } finally {
-    aiLoading.value = false;
-  }
-}
-
 async function loadAiModels() {
   try {
     const data = await ai.getModels();
@@ -869,7 +819,6 @@ function closeAiPanel() {
 function openAiConfig() {
   aiPanel.value = "config";
   sharePanelOpen.value = false;
-  void loadAiStatus();
 }
 
 function openAiPolish() {
@@ -880,7 +829,6 @@ function openAiPolish() {
   aiPanel.value = "polish";
   sharePanelOpen.value = false;
   polishResult.value = null;
-  void loadAiStatus();
 }
 
 function openAiTest() {
@@ -891,48 +839,8 @@ function openAiTest() {
   aiPanel.value = "test";
   sharePanelOpen.value = false;
   resetTestVariables();
-  void loadAiStatus();
   void loadAiModels();
   void loadTestRecords();
-}
-
-async function saveAiConfig() {
-  if (!aiConfig.apiKey.trim()) {
-    errorMsg.value = "API Key 不能为空";
-    return;
-  }
-  aiLoading.value = true;
-  errorMsg.value = "";
-  try {
-    aiKeyStatus.value = await ai.saveApiKey({
-      provider: aiConfig.provider,
-      apiKey: aiConfig.apiKey.trim(),
-      baseUrl: aiConfig.baseUrl.trim() || undefined
-    });
-    aiConfig.apiKey = "";
-    showToast("AI 配置已保存");
-  } catch (e) {
-    errorMsg.value = apiMessage(e);
-  } finally {
-    aiLoading.value = false;
-  }
-}
-
-async function deleteAiConfig() {
-  if (!confirm("确定删除当前 AI API Key？")) return;
-  aiLoading.value = true;
-  errorMsg.value = "";
-  try {
-    await ai.deleteApiKey();
-    aiKeyStatus.value = null;
-    aiConfig.apiKey = "";
-    showToast("AI 密钥已删除");
-    await loadAiStatus();
-  } catch (e) {
-    errorMsg.value = apiMessage(e);
-  } finally {
-    aiLoading.value = false;
-  }
 }
 
 async function runPolish() {

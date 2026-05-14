@@ -38,6 +38,16 @@
           </footer>
         </template>
       </section>
+
+      <section class="admin-panel profile-panel ai-profile-panel">
+        <div class="panel-title-row">
+          <div>
+            <h2>AI 配置</h2>
+            <p class="meta">管理当前账号的 AI 服务商、API Key 与可用额度。</p>
+          </div>
+        </div>
+        <AIConfigPanel @toast="showToast" />
+      </section>
     </div>
   </WorkspaceLayout>
 </template>
@@ -48,6 +58,7 @@ import { getMyProfile, updateMyProfile } from "../api/auth";
 import { ApiError } from "../api/http";
 import type { User } from "../api/types";
 import { roleLabel, userStatusLabel } from "../api/userLabels";
+import AIConfigPanel from "../components/AIConfigPanel.vue";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.vue";
 
 const loading = ref(false);

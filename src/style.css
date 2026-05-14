@@ -659,6 +659,23 @@ button:disabled {
   margin-top: 18px;
 }
 
+.ai-profile-panel {
+  margin-top: 16px;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.panel-title-row h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
 .admin-check {
   padding-top: 8px;
 }

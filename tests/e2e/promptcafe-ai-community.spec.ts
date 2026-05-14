@@ -67,6 +67,7 @@ async function mockApi(page: Page) {
     const method = req.method();
 
     if (path === "/api/auth/me") return route.fulfill({ json: ok(user) });
+    if (path === "/api/users/me") return route.fulfill({ json: ok(user) });
     if (path === "/api/prompts" && method === "GET") {
       return route.fulfill({ json: ok({ items: [promptDetail], total: 1, page: 1, pageSize: 20 }) });
     }
@@ -192,6 +193,13 @@ test("AI 配置、润色、测试和社区分享流程可用", async ({ page }) 
   await page.getByRole("button", { name: "分享到社区" }).click();
   await page.getByRole("button", { name: "提交审核" }).click();
   await expect(page.getByText("已提交社区审核")).toBeVisible();
+
+  await page.goto("/profile");
+  await expect(page.getByRole("heading", { name: "AI 配置" })).toBeVisible();
+  await expect(page.getByText("游客额度：18 / 20")).toBeVisible();
+  await page.locator('input[type="password"]').fill("sk-profile-test");
+  await page.getByRole("button", { name: "保存配置" }).click();
+  await expect(page.getByText("AI 配置已保存")).toBeVisible();
 });
 
 test("社区浏览、收藏、Fork 和举报流程可用", async ({ page }) => {
