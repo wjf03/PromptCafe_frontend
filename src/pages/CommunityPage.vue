@@ -1,6 +1,9 @@
 <template>
   <WorkspaceLayout title="社区中心" :toast-message="toastMessage">
     <template #actions>
+      <button type="button" class="text-btn" :class="{ active: listMode === 'favorites' }" @click="toggleFavorites">
+        我的收藏
+      </button>
       <button type="button" class="text-btn" @click="toggleMyShares">我的分享</button>
       <button type="button" class="text-btn" :disabled="listLoading" @click="refreshAll">刷新</button>
     </template>
@@ -8,7 +11,7 @@
     <div class="workspace community-workspace">
       <aside class="list-pane community-list-pane">
         <div class="list-header list-header-row">
-          <span>共 {{ total }} 个公开 Prompt</span>
+          <span>共 {{ total }} 个{{ listMode === "favorites" ? "收藏" : "公开 Prompt" }}</span>
           <span v-if="listLoading" class="muted"> · 加载中...</span>
         </div>
 
@@ -18,12 +21,13 @@
             class="list-filter-input"
             type="search"
             maxlength="200"
-            placeholder="搜索标题、描述或标签..."
+            :disabled="listMode === 'favorites'"
+            :placeholder="listMode === 'favorites' ? '我的收藏中暂不支持搜索' : '搜索标题、描述或标签...'"
             enterkeyhint="search"
           />
           <label class="list-sort-label">
             <span>排序</span>
-            <select v-model="sort" class="list-sort-select">
+            <select v-model="sort" class="list-sort-select" :disabled="listMode === 'favorites'">
               <option value="latest">最新</option>
               <option value="favoriteCount">收藏数</option>
               <option value="hot">热度</option>
@@ -31,7 +35,7 @@
           </label>
         </div>
 
-        <div v-if="tags.length" class="tag-cloud">
+        <div v-if="listMode === 'all' && tags.length" class="tag-cloud">
           <button
             v-for="tag in tags"
             :key="tag.name"
@@ -64,7 +68,9 @@
           </div>
         </article>
 
-        <div v-if="!listLoading && items.length === 0" class="empty-list">暂无社区内容</div>
+        <div v-if="!listLoading && items.length === 0" class="empty-list">
+          {{ listMode === "favorites" ? "暂无收藏内容" : "暂无社区内容" }}
+        </div>
         <div class="pager" v-if="totalPages > 1">
           <button type="button" class="text-btn sm" :disabled="page <= 1" @click="changePage(page - 1)">
             上一页
@@ -219,6 +225,7 @@ const pageSize = ref(10);
 const keyword = ref("");
 const selectedTags = ref<string[]>([]);
 const sort = ref<CommunitySort>("latest");
+const listMode = ref<"all" | "favorites">("all");
 const listLoading = ref(false);
 const detailLoading = ref(false);
 const actionLoading = ref(false);
@@ -275,7 +282,12 @@ async function refreshList() {
   listLoading.value = true;
   try {
     const data =
-      selectedTags.value.length === 1 && !keyword.value.trim()
+      listMode.value === "favorites"
+        ? await community.listFavoriteCommunityPrompts({
+            page: page.value,
+            pageSize: pageSize.value
+          })
+        : selectedTags.value.length === 1 && !keyword.value.trim()
         ? await community.searchCommunityPromptsByTag({
             tag: selectedTags.value[0],
             page: page.value,
@@ -292,6 +304,11 @@ async function refreshList() {
     total.value = data.pagination.total;
     page.value = data.pagination.page;
     pageSize.value = data.pagination.pageSize;
+    if (listMode.value === "favorites" && selectedId.value && !items.value.some((item) => item.id === selectedId.value)) {
+      selectedId.value = null;
+      detail.value = null;
+      reportPanelOpen.value = false;
+    }
   } catch (e) {
     errorMsg.value = apiMessage(e);
   } finally {
@@ -328,10 +345,21 @@ async function openItem(id: string) {
 }
 
 function toggleTag(tag: string) {
+  if (listMode.value === "favorites") {
+    listMode.value = "all";
+  }
   selectedTags.value = selectedTags.value.includes(tag)
     ? selectedTags.value.filter((x) => x !== tag)
     : [...selectedTags.value, tag];
   scheduleReload();
+}
+
+async function toggleFavorites() {
+  listMode.value = listMode.value === "favorites" ? "all" : "favorites";
+  mySharesOpen.value = false;
+  reportPanelOpen.value = false;
+  page.value = 1;
+  await refreshList();
 }
 
 async function changePage(next: number) {
@@ -353,6 +381,17 @@ async function toggleFavorite() {
     if (current) {
       current.favorited = r.favorited;
       current.favoriteCount = r.favoriteCount;
+    }
+    if (listMode.value === "favorites" && !r.favorited) {
+      items.value = items.value.filter((x) => x.id !== detail.value?.id);
+      total.value = Math.max(0, total.value - 1);
+      selectedId.value = null;
+      detail.value = null;
+      reportPanelOpen.value = false;
+      if (items.value.length === 0 && page.value > 1) {
+        page.value -= 1;
+        await refreshList();
+      }
     }
     showToast(r.favorited ? "已收藏" : "已取消收藏");
   } catch (e) {
@@ -380,6 +419,7 @@ function openReportPanel() {
   if (!detail.value) return;
   reportForm.reason = "unsafe_content";
   reportForm.description = "";
+  mySharesOpen.value = false;
   reportPanelOpen.value = true;
 }
 
@@ -403,7 +443,10 @@ async function submitReport() {
 
 async function toggleMyShares() {
   mySharesOpen.value = !mySharesOpen.value;
-  if (mySharesOpen.value) await loadMyShares();
+  if (mySharesOpen.value) {
+    reportPanelOpen.value = false;
+    await loadMyShares();
+  }
 }
 
 async function loadMyShares() {
@@ -464,8 +507,12 @@ function copyPromptText() {
   );
 }
 
-watch(keyword, scheduleReload);
+watch(keyword, () => {
+  if (listMode.value === "favorites") return;
+  scheduleReload();
+});
 watch(sort, async () => {
+  if (listMode.value === "favorites") return;
   page.value = 1;
   await refreshList();
 });
@@ -510,6 +557,17 @@ onUnmounted(() => {
   border-radius: 10px;
   padding: 8px 10px;
   background: #fff;
+}
+.list-filter-input:disabled,
+.list-sort-select:disabled {
+  background: #f4f6fb;
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+.text-btn.active {
+  color: #2f67ea;
+  font-weight: 600;
+  background: #eff3ff;
 }
 .fg-textarea {
   resize: vertical;

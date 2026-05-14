@@ -107,6 +107,19 @@ export async function searchCommunityPromptsByTag(params: {
   )) as PaginatedData<CommunityPromptListItem>;
 }
 
+export async function listFavoriteCommunityPrompts(params: {
+  page?: number;
+  pageSize?: number;
+}): Promise<PaginatedData<CommunityPromptListItem>> {
+  const q = new URLSearchParams();
+  if (params.page != null) q.set("page", String(params.page));
+  if (params.pageSize != null) q.set("pageSize", String(params.pageSize));
+  const qs = q.toString();
+  return (await apiRequest<PaginatedData<CommunityPromptListItem>>(
+    `/api/community/favorites${qs ? `?${qs}` : ""}`
+  )) as PaginatedData<CommunityPromptListItem>;
+}
+
 export async function sharePrompt(body: {
   promptId: string;
   title: string;

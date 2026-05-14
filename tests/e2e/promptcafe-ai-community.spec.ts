@@ -52,6 +52,8 @@ function ok(data: unknown) {
 }
 
 async function mockApi(page: Page) {
+  let favoriteActive = false;
+
   await page.addInitScript((storedUser) => {
     sessionStorage.setItem("promptcafe_token", "test-token");
     sessionStorage.setItem("promptcafe_refresh_token", "refresh-token");
@@ -114,14 +116,36 @@ async function mockApi(page: Page) {
       return route.fulfill({ json: ok({ shareId: "s-1", promptId: "p-1", title: "客服回复助手", reviewStatus: "pending", submittedAt: now }) });
     }
     if (path === "/api/community/prompts" && method === "GET") {
-      return route.fulfill({ json: ok({ items: [communityPrompt], pagination: { page: 1, pageSize: 10, total: 1 } }) });
+      return route.fulfill({
+        json: ok({
+          items: [{ ...communityPrompt, favorited: favoriteActive, favoriteCount: favoriteActive ? 9 : 8 }],
+          pagination: { page: 1, pageSize: 10, total: 1 }
+        })
+      });
+    }
+    if (path === "/api/community/favorites" && method === "GET") {
+      return route.fulfill({
+        json: ok({
+          items: favoriteActive ? [{ ...communityPrompt, favorited: true, favoriteCount: 9 }] : [],
+          pagination: { page: 1, pageSize: 10, total: favoriteActive ? 1 : 0 }
+        })
+      });
     }
     if (path === "/api/community/tags") {
       return route.fulfill({ json: ok({ items: [{ name: "翻译", promptCount: 1 }, { name: "写作", promptCount: 1 }] }) });
     }
-    if (path === "/api/community/prompts/cp-1" && method === "GET") return route.fulfill({ json: ok(communityPrompt) });
+    if (path === "/api/community/prompts/cp-1" && method === "GET") {
+      return route.fulfill({
+        json: ok({ ...communityPrompt, favorited: favoriteActive, favoriteCount: favoriteActive ? 9 : 8 })
+      });
+    }
     if (path === "/api/community/prompts/cp-1/favorite" && method === "POST") {
+      favoriteActive = true;
       return route.fulfill({ json: ok({ communityPromptId: "cp-1", favorited: true, favoriteCount: 9 }) });
+    }
+    if (path === "/api/community/prompts/cp-1/favorite" && method === "DELETE") {
+      favoriteActive = false;
+      return route.fulfill({ json: ok({ communityPromptId: "cp-1", favorited: false, favoriteCount: 8 }) });
     }
     if (path === "/api/community/prompts/cp-1/fork" && method === "POST") {
       return route.fulfill({ json: ok({ promptId: "p-fork", sourceCommunityPromptId: "cp-1", title: "社区翻译助手", createdAt: now }) });
@@ -158,12 +182,13 @@ test("AI 配置、润色、测试和社区分享流程可用", async ({ page }) 
   await expect(page.getByRole("heading", { name: "编辑 Prompt" })).toBeVisible();
   await expect(page.locator("textarea").nth(1)).toHaveValue("请用专业、清晰的语气回复 {{question}}");
 
+  await page.getByRole("button", { name: "取消" }).click();
+  await expect(page.getByRole("heading", { name: "客服回复助手" })).toBeVisible();
   await page.getByRole("button", { name: "AI 测试" }).click();
   await page.getByRole("button", { name: "运行测试" }).click();
   await expect(page.getByText("测试输出")).toBeVisible();
   await expect(page.getByText("历史输出")).toBeVisible();
 
-  await page.getByRole("button", { name: "取消" }).click();
   await page.getByRole("button", { name: "分享到社区" }).click();
   await page.getByRole("button", { name: "提交审核" }).click();
   await expect(page.getByText("已提交社区审核")).toBeVisible();
@@ -174,7 +199,19 @@ test("社区浏览、收藏、Fork 和举报流程可用", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "社区翻译助手" })).toBeVisible();
   await page.locator(".community-card").first().click();
 
-  await page.getByRole("button", { name: "收藏" }).click();
+  await page.getByRole("button", { name: "收藏", exact: true }).click();
+  await expect(page.getByRole("button", { name: "取消收藏" })).toBeVisible();
+
+  await page.getByRole("button", { name: "我的收藏" }).click();
+  await expect(page.getByText("共 1 个收藏")).toBeVisible();
+  await expect(page.locator(".community-card").filter({ hasText: "社区翻译助手" })).toBeVisible();
+  await page.getByRole("button", { name: "取消收藏" }).click();
+  await expect(page.getByText("暂无收藏内容")).toBeVisible();
+  await expect(page.getByText("请选择一条社区 Prompt。")).toBeVisible();
+
+  await page.getByRole("button", { name: "我的收藏" }).click();
+  await page.locator(".community-card").first().click();
+  await page.getByRole("button", { name: "收藏", exact: true }).click();
   await expect(page.getByRole("button", { name: "取消收藏" })).toBeVisible();
 
   await page.getByRole("button", { name: "Fork 到我的 Prompt" }).click();
