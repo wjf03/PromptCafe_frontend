@@ -153,19 +153,14 @@
                 <footer class="bottom-actions">
                   <button type="button" class="primary" :disabled="saving" @click="savePrompt">保存</button>
                   <button type="button" class="light" :disabled="saving" @click="previewFromForm">预览渲染</button>
-                  <button type="button" class="light" :disabled="saving" @click="openAiPolish">AI 润色</button>
-                  <button type="button" class="light" :disabled="saving" @click="openAiTest">AI 测试</button>
                   <button type="button" class="light" @click="cancelEdit">取消</button>
                 </footer>
               </template>
 
               <div v-else-if="detailLoading" class="muted center-pad">加载详情…</div>
-              <div v-else class="muted center-pad">
-                请从列表选择一条 Prompt，或点击「新建」。
-                <button type="button" class="text-btn sm" @click="openAiConfig">AI 配置</button>
-              </div>
+              <div v-else class="muted center-pad">请从列表选择一条 Prompt，或点击「新建」。</div>
 
-              <section v-if="aiPanel" class="tool-panel">
+              <section v-if="aiPanel && mode === 'view' && detail" class="tool-panel">
                 <div class="tool-panel-head">
                   <h3>{{ aiPanelTitle }}</h3>
                   <button type="button" class="preview-close-btn" aria-label="关闭" @click="closeAiPanel">×</button>
@@ -551,6 +546,7 @@ function varsToMap(vars: PromptVariableDef[]): Record<string, string> {
 }
 
 async function loadDetail(id: string) {
+  closeAiPanel();
   detailLoading.value = true;
   detail.value = null;
   errorMsg.value = "";
@@ -588,6 +584,7 @@ function fillFormFromDetail(d: PromptDetail) {
 }
 
 function startCreate() {
+  closeAiPanel();
   mode.value = "create";
   selectedId.value = null;
   detail.value = null;
@@ -598,6 +595,7 @@ function startCreate() {
 
 function startEdit() {
   if (!detail.value) return;
+  closeAiPanel();
   mode.value = "edit";
   fillFormFromDetail(detail.value);
   clearPreview();
@@ -986,6 +984,10 @@ async function submitShare() {
 onMounted(() => {
   window.addEventListener("mousemove", onResizeMove);
   window.addEventListener("mouseup", onResizeEnd);
+});
+
+watch(mode, (m) => {
+  if (m !== "view") closeAiPanel();
 });
 
 watch(

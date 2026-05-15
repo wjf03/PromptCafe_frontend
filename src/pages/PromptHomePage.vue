@@ -804,36 +804,6 @@ onUnmounted(() => {
   gap: 8px;
   flex-wrap: wrap;
 }
-.toast-host {
-  position: relative;
-}
-.toast-float {
-  position: absolute;
-  top: 68px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  max-width: min(420px, calc(100% - 32px));
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #166534;
-  background: #ecfdf3;
-  border: 1px solid #bbf7d0;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  pointer-events: none;
-  text-align: center;
-}
-.toast-pop-enter-active,
-.toast-pop-leave-active {
-  transition: opacity 0.22s ease, transform 0.22s ease;
-}
-.toast-pop-enter-from,
-.toast-pop-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-8px);
-}
 .error-msg {
   margin: 0 0 8px;
   padding: 8px 12px;

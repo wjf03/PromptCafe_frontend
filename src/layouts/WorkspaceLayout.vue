@@ -21,10 +21,12 @@
       <div class="nav-bottom">{{ currentUser?.role === "admin" ? "管理员" : "用户" }}</div>
     </aside>
 
-    <section class="main-shell toast-host">
-      <Transition name="toast-pop">
-        <div v-if="toastMessage" class="toast-float" role="status">{{ toastMessage }}</div>
-      </Transition>
+    <section class="main-shell">
+      <div class="toast-anchor" aria-live="polite">
+        <Transition name="toast-pop">
+          <div v-if="toastMessage" class="toast-float" role="status">{{ toastMessage }}</div>
+        </Transition>
+      </div>
       <header class="top-bar">
         <div class="title">{{ title }}</div>
         <div class="top-actions">
@@ -76,3 +78,41 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+/* 主内容区上方居中，与左侧栏宽度对齐（.left-nav 约 104px） */
+.toast-anchor {
+  position: fixed;
+  top: 12px;
+  left: 104px;
+  right: 0;
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+.toast-float {
+  max-width: min(420px, 100%);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #166534;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  text-align: center;
+  line-height: 1.4;
+}
+.toast-pop-enter-active,
+.toast-pop-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-pop-enter-from,
+.toast-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+</style>
