@@ -623,42 +623,6 @@ button:disabled {
   max-width: none;
 }
 
-.profile-panel {
-  max-width: 860px;
-}
-
-.profile-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.profile-head h2 {
-  margin: 0;
-  font-size: 28px;
-}
-
-.profile-avatar {
-  width: 64px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: #2f67ea;
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.profile-form {
-  max-width: 720px;
-}
-
-.profile-actions {
-  margin-top: 18px;
-}
-
 .ai-profile-panel {
   margin-top: 16px;
 }
