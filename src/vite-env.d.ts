@@ -1,5 +1,11 @@
 /// <reference types="vite/client" />
 
+declare module "*.vue" {
+  import type { DefineComponent } from "vue";
+  const component: DefineComponent<{}, {}, unknown>;
+  export default component;
+}
+
 interface ImportMetaEnv {
   /** 留空则走 Vite 代理的 `/api`（见 vite.config.ts） */
   readonly VITE_API_BASE_URL: string;
