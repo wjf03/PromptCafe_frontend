@@ -51,6 +51,32 @@
             <div class="label">举报说明</div>
             <div class="value pre">{{ selected.description || "（无）" }}</div>
           </div>
+          <div v-if="detailLoading" class="muted center-pad">加载 Prompt 内容…</div>
+          <template v-else-if="selectedPrompt">
+            <div class="field">
+              <div class="label">Prompt 标题</div>
+              <div class="value">{{ selectedPrompt.titleSnapshot }}</div>
+            </div>
+            <p class="meta">{{ authorName(selectedPrompt.author) }} · {{ formatTime(selectedPrompt.createdAt) }}</p>
+            <p class="detail-desc" :class="{ muted: !selectedPrompt.description?.trim() }">
+              {{ selectedPrompt.description?.trim() || "暂无描述" }}
+            </p>
+            <div v-if="selectedPrompt.tagsSnapshot?.length" class="tag-row">
+              <span v-for="tag in selectedPrompt.tagsSnapshot" :key="tag" class="tag-chip">{{ tag }}</span>
+            </div>
+            <div class="field">
+              <div class="label">系统提示词</div>
+              <div class="value pre">{{ selectedPrompt.systemPromptSnapshot || "（空）" }}</div>
+            </div>
+            <div class="field">
+              <div class="label">用户提示词</div>
+              <div class="value pre">{{ selectedPrompt.userPromptSnapshot }}</div>
+            </div>
+          </template>
+          <div v-else class="field">
+            <div class="label">Prompt 内容</div>
+            <div class="value muted">未能加载被举报 Prompt 内容</div>
+          </div>
           <div class="field">
             <div class="label">处理结果</div>
             <div class="value pre">{{ selected.handleResult || "尚未处理" }}</div>
@@ -80,33 +106,49 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import * as admin from "../api/admin";
 import { ApiError } from "../api/http";
-import type { CommunityReport, CommunityReportStatus } from "../api/types";
-import { formatTime, reportStatusLabel } from "../api/userLabels";
+import type { CommunityPromptAdmin, CommunityReport, CommunityReportStatus } from "../api/types";
+import { authorName, formatTime, reportStatusLabel } from "../api/userLabels";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.vue";
 
 const filters = reactive({ status: "" as CommunityReportStatus | "", communityPromptId: "" });
 const handleForm = reactive({ status: "processed" as CommunityReportStatus, handleResult: "", removeCommunityPrompt: false });
 const items = ref<CommunityReport[]>([]);
 const selected = ref<CommunityReport | null>(null);
+const selectedPrompt = ref<CommunityPromptAdmin | null>(null);
 const page = ref(1);
 const pageSize = ref(12);
 const total = ref(0);
 const loading = ref(false);
+const detailLoading = ref(false);
 const acting = ref(false);
 const errorMsg = ref("");
 const toastMessage = ref("");
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+let detailRequestId = 0;
 
 function showToast(message: string) {
   toastMessage.value = message;
   window.setTimeout(() => (toastMessage.value = ""), 2400);
 }
 
-function select(report: CommunityReport) {
+async function select(report: CommunityReport) {
+  const requestId = ++detailRequestId;
   selected.value = report;
+  selectedPrompt.value = null;
   handleForm.status = report.status === "rejected" ? "rejected" : "processed";
   handleForm.handleResult = report.handleResult ?? "";
   handleForm.removeCommunityPrompt = false;
+  detailLoading.value = true;
+  try {
+    const prompt = await admin.getSharedPrompt(report.communityPromptId);
+    if (requestId === detailRequestId) selectedPrompt.value = prompt;
+  } catch (e) {
+    if (requestId === detailRequestId) {
+      errorMsg.value = e instanceof ApiError ? e.message : String(e);
+    }
+  } finally {
+    if (requestId === detailRequestId) detailLoading.value = false;
+  }
 }
 
 async function loadList() {
