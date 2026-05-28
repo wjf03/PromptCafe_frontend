@@ -17,25 +17,27 @@
           <button type="button" class="text-btn" @click="reload">查询</button>
         </div>
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>原因</th>
-              <th>社区 Prompt</th>
-              <th>状态</th>
-              <th>提交时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="report in items" :key="report.id" :class="{ active: selected?.id === report.id }" @click="select(report)">
-              <td>{{ report.reason }}</td>
-              <td>{{ report.communityPromptId }}</td>
-              <td><span class="status-badge" :class="{ warn: report.status === 'pending' }">{{ reportStatusLabel(report.status) }}</span></td>
-              <td>{{ formatTime(report.createdAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="!loading && !items.length" class="admin-empty">暂无举报</div>
+        <div class="admin-table-scroll">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>原因</th>
+                <th>社区 Prompt</th>
+                <th>状态</th>
+                <th>提交时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="report in items" :key="report.id" :class="{ active: selected?.id === report.id }" @click="select(report)">
+                <td>{{ report.reason }}</td>
+                <td>{{ report.communityPromptId }}</td>
+                <td><span class="status-badge" :class="{ warn: report.status === 'pending' }">{{ reportStatusLabel(report.status) }}</span></td>
+                <td>{{ formatTime(report.createdAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="!loading && !items.length" class="admin-empty">暂无举报</div>
+        </div>
         <div class="pager">
           <button type="button" class="text-btn sm" :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
           <span class="muted">{{ page }} / {{ totalPages }} · 共 {{ total }} 条</span>
@@ -44,53 +46,55 @@
       </section>
 
       <aside class="admin-panel detail-card">
-        <div v-if="selected">
-          <h2>{{ selected.reason }}</h2>
-          <p class="meta">{{ selected.communityPromptId }} · {{ reportStatusLabel(selected.status) }}</p>
-          <div class="field">
-            <div class="label">举报说明</div>
-            <div class="value pre">{{ selected.description || "（无）" }}</div>
-          </div>
-          <div v-if="detailLoading" class="muted center-pad">加载 Prompt 内容…</div>
-          <template v-else-if="selectedPrompt">
+        <div v-if="selected" class="detail-shell">
+          <div class="detail-scroll">
+            <h2>{{ selected.reason }}</h2>
+            <p class="meta">{{ selected.communityPromptId }} · {{ reportStatusLabel(selected.status) }}</p>
             <div class="field">
-              <div class="label">Prompt 标题</div>
-              <div class="value">{{ selectedPrompt.titleSnapshot }}</div>
+              <div class="label">举报说明</div>
+              <div class="value pre">{{ selected.description || "（无）" }}</div>
             </div>
-            <p class="meta">{{ authorName(selectedPrompt.author) }} · {{ formatTime(selectedPrompt.createdAt) }}</p>
-            <p class="detail-desc" :class="{ muted: !selectedPrompt.description?.trim() }">
-              {{ selectedPrompt.description?.trim() || "暂无描述" }}
-            </p>
-            <div v-if="selectedPrompt.tagsSnapshot?.length" class="tag-row">
-              <span v-for="tag in selectedPrompt.tagsSnapshot" :key="tag" class="tag-chip">{{ tag }}</span>
+            <div v-if="detailLoading" class="muted center-pad">加载 Prompt 内容…</div>
+            <template v-else-if="selectedPrompt">
+              <div class="field">
+                <div class="label">Prompt 标题</div>
+                <div class="value">{{ selectedPrompt.titleSnapshot }}</div>
+              </div>
+              <p class="meta">{{ authorName(selectedPrompt.author) }} · {{ formatTime(selectedPrompt.createdAt) }}</p>
+              <p class="detail-desc" :class="{ muted: !selectedPrompt.description?.trim() }">
+                {{ selectedPrompt.description?.trim() || "暂无描述" }}
+              </p>
+              <div v-if="selectedPrompt.tagsSnapshot?.length" class="tag-row">
+                <span v-for="tag in selectedPrompt.tagsSnapshot" :key="tag" class="tag-chip">{{ tag }}</span>
+              </div>
+              <div class="field">
+                <div class="label">系统提示词</div>
+                <div class="value pre">{{ selectedPrompt.systemPromptSnapshot || "（空）" }}</div>
+              </div>
+              <div class="field">
+                <div class="label">用户提示词</div>
+                <div class="value pre">{{ selectedPrompt.userPromptSnapshot }}</div>
+              </div>
+            </template>
+            <div v-else class="field">
+              <div class="label">Prompt 内容</div>
+              <div class="value muted">未能加载被举报 Prompt 内容</div>
             </div>
             <div class="field">
-              <div class="label">系统提示词</div>
-              <div class="value pre">{{ selectedPrompt.systemPromptSnapshot || "（空）" }}</div>
+              <div class="label">处理结果</div>
+              <div class="value pre">{{ selected.handleResult || "尚未处理" }}</div>
             </div>
-            <div class="field">
-              <div class="label">用户提示词</div>
-              <div class="value pre">{{ selectedPrompt.userPromptSnapshot }}</div>
+            <div class="form-grid compact-form">
+              <label class="fg-label">处理状态</label>
+              <select v-model="handleForm.status" class="fg-input">
+                <option value="processed">已处理</option>
+                <option value="rejected">驳回举报</option>
+              </select>
+              <label class="fg-label">处理说明</label>
+              <textarea v-model="handleForm.handleResult" class="fg-textarea" rows="4" />
+              <label class="fg-label">下架分享</label>
+              <label class="chk admin-check"><input v-model="handleForm.removeCommunityPrompt" type="checkbox" /> 同时下架被举报的社区 Prompt</label>
             </div>
-          </template>
-          <div v-else class="field">
-            <div class="label">Prompt 内容</div>
-            <div class="value muted">未能加载被举报 Prompt 内容</div>
-          </div>
-          <div class="field">
-            <div class="label">处理结果</div>
-            <div class="value pre">{{ selected.handleResult || "尚未处理" }}</div>
-          </div>
-          <div class="form-grid compact-form">
-            <label class="fg-label">处理状态</label>
-            <select v-model="handleForm.status" class="fg-input">
-              <option value="processed">已处理</option>
-              <option value="rejected">驳回举报</option>
-            </select>
-            <label class="fg-label">处理说明</label>
-            <textarea v-model="handleForm.handleResult" class="fg-textarea" rows="4" />
-            <label class="fg-label">下架分享</label>
-            <label class="chk admin-check"><input v-model="handleForm.removeCommunityPrompt" type="checkbox" /> 同时下架被举报的社区 Prompt</label>
           </div>
           <footer class="bottom-actions">
             <button type="button" class="primary" :disabled="acting" @click="handle">提交处理</button>

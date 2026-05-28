@@ -18,27 +18,29 @@
           <button type="button" class="text-btn" @click="reload">查询</button>
         </div>
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>标题</th>
-              <th>作者</th>
-              <th>可见性</th>
-              <th>版本</th>
-              <th>更新时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="prompt in items" :key="prompt.id" :class="{ active: selected?.id === prompt.id }" @click="openDetail(prompt.id)">
-              <td>{{ prompt.title }}</td>
-              <td>{{ authorName(prompt.author) }}</td>
-              <td><span class="status-badge">{{ visibilityLabel(prompt.visibility) }}</span></td>
-              <td>v{{ prompt.currentVersion }}</td>
-              <td>{{ formatTime(prompt.updatedAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="!loading && !items.length" class="admin-empty">暂无 Prompt</div>
+        <div class="admin-table-scroll">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>作者</th>
+                <th>可见性</th>
+                <th>版本</th>
+                <th>更新时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="prompt in items" :key="prompt.id" :class="{ active: selected?.id === prompt.id }" @click="openDetail(prompt.id)">
+                <td>{{ prompt.title }}</td>
+                <td>{{ authorName(prompt.author) }}</td>
+                <td><span class="status-badge">{{ visibilityLabel(prompt.visibility) }}</span></td>
+                <td>v{{ prompt.currentVersion }}</td>
+                <td>{{ formatTime(prompt.updatedAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="!loading && !items.length" class="admin-empty">暂无 Prompt</div>
+        </div>
         <div class="pager">
           <button type="button" class="text-btn sm" :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
           <span class="muted">{{ page }} / {{ totalPages }} · 共 {{ total }} 条</span>
@@ -48,27 +50,29 @@
 
       <aside class="admin-panel detail-card">
         <div v-if="detailLoading" class="muted center-pad">加载 Prompt 详情…</div>
-        <div v-else-if="selected">
-          <h2>{{ selected.title }}</h2>
-          <p class="meta">{{ authorName(selected.author) }} · {{ visibilityLabel(selected.visibility) }} · v{{ selected.currentVersion }}</p>
-          <div class="form-grid compact-form">
-            <label class="fg-label">标题</label>
-            <input v-model="form.title" class="fg-input" type="text" />
-            <label class="fg-label">简介</label>
-            <input v-model="form.description" class="fg-input" type="text" />
-            <label class="fg-label">可见性</label>
-            <select v-model="form.visibility" class="fg-input">
-              <option value="private">私有</option>
-              <option value="public">公开</option>
-            </select>
-            <label class="fg-label">标签</label>
-            <input v-model="form.tagsText" class="fg-input" type="text" placeholder="逗号分隔" />
-            <label class="fg-label">系统提示词</label>
-            <textarea v-model="form.systemPrompt" class="fg-textarea" rows="4" />
-            <label class="fg-label">用户提示词</label>
-            <textarea v-model="form.userPrompt" class="fg-textarea" rows="7" />
-            <label class="fg-label">操作原因</label>
-            <textarea v-model="reason" class="fg-textarea" rows="3" />
+        <div v-else-if="selected" class="detail-shell">
+          <div class="detail-scroll">
+            <h2>{{ selected.title }}</h2>
+            <p class="meta">{{ authorName(selected.author) }} · {{ visibilityLabel(selected.visibility) }} · v{{ selected.currentVersion }}</p>
+            <div class="form-grid compact-form">
+              <label class="fg-label">标题</label>
+              <input v-model="form.title" class="fg-input" type="text" />
+              <label class="fg-label">简介</label>
+              <input v-model="form.description" class="fg-input" type="text" />
+              <label class="fg-label">可见性</label>
+              <select v-model="form.visibility" class="fg-input">
+                <option value="private">私有</option>
+                <option value="public">公开</option>
+              </select>
+              <label class="fg-label">标签</label>
+              <input v-model="form.tagsText" class="fg-input" type="text" placeholder="逗号分隔" />
+              <label class="fg-label">系统提示词</label>
+              <textarea v-model="form.systemPrompt" class="fg-textarea" rows="4" />
+              <label class="fg-label">用户提示词</label>
+              <textarea v-model="form.userPrompt" class="fg-textarea" rows="7" />
+              <label class="fg-label">操作原因</label>
+              <textarea v-model="reason" class="fg-textarea" rows="3" />
+            </div>
           </div>
           <footer class="bottom-actions">
             <button type="button" class="primary" :disabled="acting" @click="save">保存</button>
