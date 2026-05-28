@@ -1,4 +1,4 @@
-# PromptCafe 前端（PromptHub Web）
+# PromptCafe 前端
 
 本仓库为 **PromptCafe** 大模型提示词管理系统的 **网页端前端**，与后端 API 分离部署。当前阶段已搭好 **Vue 3 + TypeScript + Vite** 的最小可运行骨架，包含登录页与「我的 Prompt」首页布局，后续在此之上接入真实接口与业务模块即可。
 
