@@ -8,9 +8,11 @@ export type ReportReason = "unsafe_content" | "copyright" | "spam" | "privacy" |
 export type CommunityPromptVariable = {
   name: string;
   type: "text" | "textarea" | "select" | "number";
-  label: string;
+  label?: string | null;
   required: boolean;
   options?: string[];
+  description?: string | null;
+  value?: string | number | null;
 };
 
 export type CommunityPromptListItem = {

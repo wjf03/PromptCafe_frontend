@@ -1,10 +1,10 @@
 <template>
   <WorkspaceLayout title="社区中心" :toast-message="toastMessage">
     <template #actions>
-      <button type="button" class="text-btn" :class="{ active: listMode === 'favorites' }" @click="toggleFavorites">
+      <button v-if="isLoggedIn" type="button" class="text-btn" :class="{ active: listMode === 'favorites' }" @click="toggleFavorites">
         我的收藏
       </button>
-      <button type="button" class="text-btn" @click="toggleMyShares">我的分享</button>
+      <button v-if="isLoggedIn" type="button" class="text-btn" @click="toggleMyShares">我的分享</button>
       <button type="button" class="text-btn" :disabled="listLoading" @click="refreshAll">刷新</button>
     </template>
 
@@ -123,17 +123,99 @@
               </div>
 
               <footer class="bottom-actions">
-                <button type="button" class="primary" :disabled="actionLoading" @click="toggleFavorite">
+                <button v-if="isLoggedIn" type="button" class="primary" :disabled="actionLoading" @click="toggleFavorite">
                   {{ detail.favorited ? "取消收藏" : "收藏" }}
                 </button>
-                <button type="button" class="light" :disabled="actionLoading" @click="forkCurrent">Fork 到我的 Prompt</button>
-                <button type="button" class="light" :disabled="actionLoading" @click="openReportPanel">举报</button>
+                <button v-if="isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="forkCurrent">Fork 到我的 Prompt</button>
+                <button v-if="isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="openReportPanel">举报</button>
+                <button v-if="!isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="openAiPolish">AI 润色</button>
+                <button v-if="!isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="openAiTest">AI 测试</button>
                 <button type="button" class="light" @click="copyPromptText">复制内容</button>
               </footer>
             </template>
 
             <div v-else-if="detailLoading" class="muted center-pad">加载详情...</div>
             <div v-else class="muted center-pad">请选择一条社区 Prompt。</div>
+
+            <section v-if="aiPanel && detail" class="tool-panel">
+              <div class="tool-panel-head">
+                <h3>{{ aiPanel === "polish" ? "AI 润色" : "AI 测试" }}</h3>
+                <button type="button" class="preview-close-btn" aria-label="关闭" @click="closeAiPanel">×</button>
+              </div>
+              <p v-if="!isLoggedIn" class="muted">游客模式将使用管理员配置的系统默认 API Key，今日剩余额度：{{ guestConfig?.remainingCount ?? "-" }} / {{ guestConfig?.dailyLimit ?? "-" }}</p>
+
+              <template v-if="aiPanel === 'polish'">
+                <div class="form-grid compact-form">
+                  <label class="fg-label">语气</label>
+                  <select v-model="polishForm.tone" class="fg-input">
+                    <option value="formal">正式</option>
+                    <option value="casual">自然</option>
+                    <option value="concise">简洁</option>
+                    <option value="academic">学术</option>
+                    <option value="creative">创意</option>
+                  </select>
+                  <label class="fg-label">语言</label>
+                  <select v-model="polishForm.language" class="fg-input">
+                    <option value="zh-CN">中文</option>
+                    <option value="en-US">英文</option>
+                  </select>
+                  <label class="fg-label">长度</label>
+                  <select v-model="polishForm.lengthPreference" class="fg-input">
+                    <option value="short">更短</option>
+                    <option value="medium">适中</option>
+                    <option value="long">更详细</option>
+                  </select>
+                </div>
+                <div class="bottom-actions inline-actions">
+                  <button type="button" class="primary" :disabled="aiLoading" @click="runPolish">开始润色</button>
+                </div>
+                <div v-if="polishResult" class="ai-result-grid">
+                  <div>
+                    <div class="label">优化结果</div>
+                    <div class="value pre">{{ polishResult.optimized }}</div>
+                  </div>
+                  <div>
+                    <div class="label">建议</div>
+                    <ul class="suggestion-list">
+                      <li v-for="(item, idx) in polishResult.suggestions" :key="idx">{{ item }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="form-grid compact-form">
+                  <label class="fg-label">服务商</label>
+                  <input class="fg-input" type="text" :value="providerLabel(testForm.provider)" disabled />
+                  <label class="fg-label">模型</label>
+                  <input v-model="testForm.model" class="fg-input" type="text" :disabled="!isLoggedIn" />
+                  <label class="fg-label">Temperature</label>
+                  <input v-model.number="testForm.temperature" class="fg-input" type="number" min="0" max="2" step="0.1" />
+                  <label class="fg-label">Max Tokens</label>
+                  <input v-model.number="testForm.maxTokens" class="fg-input" type="number" min="1" max="16384" step="1" />
+                </div>
+                <div v-if="detail.variables?.length" class="test-vars">
+                  <div class="label">测试变量</div>
+                  <div v-for="v in detail.variables" :key="v.name" class="test-var-row">
+                    <span>{{ v.label || v.name }}</span>
+                    <input v-model="testVariables[v.name]" class="fg-input" type="text" :placeholder="v.description || v.name" />
+                  </div>
+                </div>
+                <div class="bottom-actions inline-actions">
+                  <button type="button" class="primary" :disabled="aiLoading" @click="runAiTest">运行测试</button>
+                </div>
+                <div v-if="testResult" class="ai-result-grid">
+                  <div>
+                    <div class="label">模型输出</div>
+                    <div class="value pre">{{ testResult.output }}</div>
+                  </div>
+                  <div>
+                    <div class="label">渲染 Prompt</div>
+                    <div class="value pre">{{ testResult.renderedPrompt }}</div>
+                  </div>
+                </div>
+              </template>
+            </section>
 
             <section v-if="reportPanelOpen && detail" class="tool-panel">
               <div class="tool-panel-head">
@@ -204,8 +286,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
-import { ApiError } from "../api/http";
+import { isAuthenticated } from "../api/auth";
+import * as ai from "../api/ai";
 import * as community from "../api/community";
+import { friendlyApiMessage } from "../api/errors";
+import type { AIGuestConfig, AIPolishResult, AITestResult } from "../api/ai";
 import type {
   CommunityPromptDetail,
   CommunityPromptListItem,
@@ -236,17 +321,35 @@ const detail = ref<CommunityPromptDetail | null>(null);
 const toastMessage = ref("");
 const reportPanelOpen = ref(false);
 const mySharesOpen = ref(false);
+const aiPanel = ref<"polish" | "test" | null>(null);
+const aiLoading = ref(false);
+const guestConfig = ref<AIGuestConfig | null>(null);
+const polishResult = ref<AIPolishResult | null>(null);
+const testResult = ref<AITestResult | null>(null);
 const myShares = ref<MyShareItem[]>([]);
 const shareStatusFilter = ref<ReviewStatus | "">("");
 const reportForm = reactive({
   reason: "unsafe_content" as ReportReason,
   description: ""
 });
+const polishForm = reactive({
+  tone: "formal" as ai.AIPolishTone,
+  language: "zh-CN" as ai.AILanguage,
+  lengthPreference: "medium" as ai.AILengthPreference
+});
+const testForm = reactive({
+  provider: "deepseek" as ai.AIProvider,
+  model: "deepseek-chat",
+  temperature: 0.7,
+  maxTokens: 4096
+});
+const testVariables = reactive<Record<string, string>>({});
 
 let listDebounce: ReturnType<typeof setTimeout> | null = null;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+const isLoggedIn = computed(() => isAuthenticated());
 
 function showToast(message: string) {
   if (toastTimer) clearTimeout(toastTimer);
@@ -262,7 +365,17 @@ function formatTime(iso: string) {
 }
 
 function apiMessage(e: unknown) {
-  return e instanceof ApiError ? e.message : String(e);
+  return friendlyApiMessage(e);
+}
+
+function providerLabel(provider?: string | null) {
+  const labels: Record<string, string> = {
+    openai: "OpenAI",
+    deepseek: "DeepSeek",
+    anthropic: "Anthropic",
+    custom: "自定义"
+  };
+  return provider ? labels[provider] ?? provider : "-";
 }
 
 function scheduleReload() {
@@ -329,6 +442,7 @@ async function refreshAll() {
 async function openItem(id: string) {
   selectedId.value = id;
   reportPanelOpen.value = false;
+  closeAiPanel();
   detailLoading.value = true;
   errorMsg.value = "";
   try {
@@ -352,6 +466,10 @@ function toggleTag(tag: string) {
 }
 
 async function toggleFavorites() {
+  if (!isLoggedIn.value) {
+    errorMsg.value = "请先登录后查看我的收藏";
+    return;
+  }
   listMode.value = listMode.value === "favorites" ? "all" : "favorites";
   mySharesOpen.value = false;
   reportPanelOpen.value = false;
@@ -366,6 +484,10 @@ async function changePage(next: number) {
 
 async function toggleFavorite() {
   if (!detail.value) return;
+  if (!isLoggedIn.value) {
+    errorMsg.value = "请先登录后收藏社区 Prompt";
+    return;
+  }
   actionLoading.value = true;
   errorMsg.value = "";
   try {
@@ -400,6 +522,10 @@ async function toggleFavorite() {
 
 async function forkCurrent() {
   if (!detail.value) return;
+  if (!isLoggedIn.value) {
+    errorMsg.value = "请先登录后 Fork 到我的 Prompt";
+    return;
+  }
   actionLoading.value = true;
   errorMsg.value = "";
   try {
@@ -414,6 +540,10 @@ async function forkCurrent() {
 
 function openReportPanel() {
   if (!detail.value) return;
+  if (!isLoggedIn.value) {
+    errorMsg.value = "请先登录后举报社区 Prompt";
+    return;
+  }
   reportForm.reason = "unsafe_content";
   reportForm.description = "";
   mySharesOpen.value = false;
@@ -439,6 +569,10 @@ async function submitReport() {
 }
 
 async function toggleMyShares() {
+  if (!isLoggedIn.value) {
+    errorMsg.value = "请先登录后查看我的分享";
+    return;
+  }
   mySharesOpen.value = !mySharesOpen.value;
   if (mySharesOpen.value) {
     reportPanelOpen.value = false;
@@ -486,6 +620,127 @@ function reviewStatusText(status: ReviewStatus) {
     removed: "已下架"
   };
   return map[status];
+}
+
+function closeAiPanel() {
+  aiPanel.value = null;
+}
+
+function communityPromptContent() {
+  if (!detail.value) return "";
+  return [
+    detail.value.systemPrompt?.trim() ? `【系统提示词】\n${detail.value.systemPrompt.trim()}` : "",
+    detail.value.userPrompt.trim() ? `【用户提示词】\n${detail.value.userPrompt.trim()}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function prepareGuestConfig() {
+  if (isLoggedIn.value) return;
+  guestConfig.value = await ai.getGuestConfig();
+  if (!guestConfig.value.configured) {
+    throw new Error("游客 AI 服务尚未配置，请联系管理员设置系统默认 API Key");
+  }
+  if (!guestConfig.value.allowed) {
+    throw new Error("游客 AI 调用额度已用完，请明天再试或登录后使用个人 API Key");
+  }
+  if (guestConfig.value.provider) testForm.provider = guestConfig.value.provider;
+  if (guestConfig.value.defaultModel) testForm.model = guestConfig.value.defaultModel;
+}
+
+async function prepareUserModel() {
+  if (!isLoggedIn.value) return;
+  const [status, models] = await Promise.all([ai.getApiKeyStatus(), ai.getModels()]);
+  if (status.configured && status.provider) testForm.provider = status.provider;
+  const options = models.items.find((item) => item.provider === testForm.provider)?.models ?? [];
+  if (options.length && !options.includes(testForm.model)) {
+    testForm.model = options[0];
+  }
+}
+
+async function openAiPolish() {
+  if (!detail.value) return;
+  errorMsg.value = "";
+  try {
+    await prepareGuestConfig();
+    polishResult.value = null;
+    testResult.value = null;
+    reportPanelOpen.value = false;
+    mySharesOpen.value = false;
+    aiPanel.value = "polish";
+  } catch (e) {
+    errorMsg.value = apiMessage(e);
+  }
+}
+
+async function openAiTest() {
+  if (!detail.value) return;
+  errorMsg.value = "";
+  try {
+    await prepareGuestConfig();
+    await prepareUserModel();
+    for (const key of Object.keys(testVariables)) delete testVariables[key];
+    for (const variable of detail.value.variables ?? []) {
+      if (!variable.name?.trim()) continue;
+      testVariables[variable.name.trim()] = (variable.value ?? "").toString();
+    }
+    polishResult.value = null;
+    testResult.value = null;
+    reportPanelOpen.value = false;
+    mySharesOpen.value = false;
+    aiPanel.value = "test";
+  } catch (e) {
+    errorMsg.value = apiMessage(e);
+  }
+}
+
+async function runPolish() {
+  if (!detail.value) return;
+  aiLoading.value = true;
+  errorMsg.value = "";
+  try {
+    await prepareGuestConfig();
+    polishResult.value = await ai.polishPrompt({
+      content: detail.value.userPrompt,
+      tone: polishForm.tone,
+      language: polishForm.language,
+      lengthPreference: polishForm.lengthPreference
+    });
+    if (!isLoggedIn.value) guestConfig.value = await ai.getGuestConfig();
+    showToast("润色完成");
+  } catch (e) {
+    errorMsg.value = apiMessage(e);
+  } finally {
+    aiLoading.value = false;
+  }
+}
+
+async function runAiTest() {
+  const content = communityPromptContent();
+  if (!content.trim()) {
+    errorMsg.value = "没有可测试的 Prompt 内容";
+    return;
+  }
+  aiLoading.value = true;
+  errorMsg.value = "";
+  try {
+    await prepareGuestConfig();
+    testResult.value = await ai.testPrompt({
+      content,
+      variables: { ...testVariables },
+      provider: testForm.provider,
+      model: testForm.model.trim(),
+      temperature: testForm.temperature,
+      maxTokens: testForm.maxTokens
+    });
+    if (!isLoggedIn.value) guestConfig.value = await ai.getGuestConfig();
+    showToast("AI 测试完成");
+  } catch (e) {
+    errorMsg.value = apiMessage(e);
+  } finally {
+    aiLoading.value = false;
+  }
 }
 
 function copyPromptText() {
@@ -756,6 +1011,36 @@ onUnmounted(() => {
   margin-top: 12px;
   flex-wrap: wrap;
 }
+.ai-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.suggestion-list {
+  margin: 0;
+  padding: 10px 12px 10px 28px;
+  border: 1px solid #e2e6f0;
+  border-radius: 10px;
+  background: #fbfcff;
+  color: #4b5563;
+  line-height: 1.55;
+}
+.test-vars {
+  margin-top: 12px;
+}
+.test-var-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+.test-var-row span {
+  color: #5b6475;
+  font-size: 13px;
+  word-break: break-word;
+}
 .share-filter {
   display: flex;
   align-items: end;
@@ -774,5 +1059,12 @@ onUnmounted(() => {
 .share-row p {
   margin: 4px 0 0;
   font-size: 12px;
+}
+@media (max-width: 860px) {
+  .form-grid,
+  .ai-result-grid,
+  .test-var-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

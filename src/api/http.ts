@@ -2,6 +2,7 @@ import type { ApiErrorBody } from "./types";
 
 const TOKEN_KEY = "promptcafe_token";
 const REFRESH_TOKEN_KEY = "promptcafe_refresh_token";
+const GUEST_SESSION_KEY = "promptcafe_guest_session_id";
 
 export function getToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY);
@@ -22,6 +23,19 @@ export function setRefreshToken(token: string) {
 export function clearToken() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+export function getGuestSessionId(): string {
+  let sessionId = sessionStorage.getItem(GUEST_SESSION_KEY);
+  if (!sessionId) {
+    const randomId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionId = `guest:${randomId}`;
+    sessionStorage.setItem(GUEST_SESSION_KEY, sessionId);
+  }
+  return sessionId;
 }
 
 function baseUrl(): string {
@@ -79,6 +93,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const token = getToken();
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
+  } else {
+    headers.set("X-Guest-Session-Id", getGuestSessionId());
   }
 
   const res = await fetch(url, { ...init, headers });

@@ -18,6 +18,7 @@
 
       <p v-if="errorMsg" class="auth-error">{{ errorMsg }}</p>
       <button type="button" :disabled="loading" @click="goHome">{{ loading ? "登录中…" : "登录" }}</button>
+      <button type="button" class="guest-btn" :disabled="loading" @click="goGuest">游客访问社区</button>
       <p class="auth-switch">还没有账号？<RouterLink to="/register">立即注册</RouterLink></p>
     </div>
   </div>
@@ -55,4 +56,18 @@ const goHome = async () => {
     loading.value = false;
   }
 };
+
+const goGuest = async () => {
+  errorMsg.value = "";
+  await router.push("/community");
+};
 </script>
+
+<style scoped>
+.guest-btn {
+  margin-top: 10px;
+  background: #eef3ff;
+  color: #2563eb;
+  border: 1px solid #c7d7fe;
+}
+</style>

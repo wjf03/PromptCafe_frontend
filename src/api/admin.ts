@@ -14,6 +14,17 @@ import type {
   UserStatus
 } from "./types";
 
+export type AdminSystemAIConfig = {
+  configured: boolean;
+  provider: "openai" | "deepseek" | "anthropic" | "custom" | null;
+  baseUrl?: string | null;
+  maskedKey?: string | null;
+  defaultModel?: string | null;
+  dailyGuestLimit: number;
+  isEnabled: boolean;
+  updatedAt?: string | null;
+};
+
 function qs(params: Record<string, string | number | boolean | null | undefined>): string {
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -181,4 +192,22 @@ export async function listAuditLogs(params: {
   return (await apiRequest<PaginatedData<AuditLog>>(
     `/api/admin/audit-logs${qs(params)}`
   )) as PaginatedData<AuditLog>;
+}
+
+export async function getSystemAIConfig(): Promise<AdminSystemAIConfig> {
+  return (await apiRequest<AdminSystemAIConfig>("/api/admin/ai/system-config")) as AdminSystemAIConfig;
+}
+
+export async function saveSystemAIConfig(body: {
+  provider: "openai" | "deepseek" | "anthropic" | "custom";
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  defaultModel: string;
+  dailyGuestLimit: number;
+  isEnabled: boolean;
+}): Promise<AdminSystemAIConfig> {
+  return (await apiRequest<AdminSystemAIConfig>("/api/admin/ai/system-config", {
+    method: "PUT",
+    body: JSON.stringify(body)
+  })) as AdminSystemAIConfig;
 }

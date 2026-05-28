@@ -14,6 +14,15 @@ export type AIGuestQuota = {
   allowed: boolean;
 };
 
+export type AIGuestConfig = {
+  configured: boolean;
+  provider: AIProvider | null;
+  defaultModel: string | null;
+  dailyLimit: number;
+  remainingCount: number;
+  allowed: boolean;
+};
+
 export type AIApiKeyStatus = {
   configured: boolean;
   saved?: boolean;
@@ -80,6 +89,10 @@ export type AITestRecordDetail = {
 
 export async function getGuestQuota(): Promise<AIGuestQuota> {
   return (await apiRequest<AIGuestQuota>("/api/ai/guest/quota")) as AIGuestQuota;
+}
+
+export async function getGuestConfig(): Promise<AIGuestConfig> {
+  return (await apiRequest<AIGuestConfig>("/api/ai/guest/config")) as AIGuestConfig;
 }
 
 export async function getApiKeyStatus(): Promise<AIApiKeyStatus> {

@@ -11,6 +11,7 @@ import AdminUsersPage from "../pages/AdminUsersPage.vue";
 import AdminPromptsPage from "../pages/AdminPromptsPage.vue";
 import AdminReportsPage from "../pages/AdminReportsPage.vue";
 import AdminAuditLogsPage from "../pages/AdminAuditLogsPage.vue";
+import AdminAIConfigPage from "../pages/AdminAIConfigPage.vue";
 import PromptVersionsPage from "../pages/PromptVersionsPage.vue";
 import PromptVersionsComparePage from "../pages/PromptVersionsComparePage.vue";
 
@@ -40,13 +41,14 @@ const router = createRouter({
         }
       ]
     },
-    { path: "/community", name: "community", component: CommunityPage, meta: { requiresAuth: true } },
+    { path: "/community", name: "community", component: CommunityPage },
     { path: "/profile", name: "profile", component: ProfilePage, meta: { requiresAuth: true } },
     { path: "/admin/reviews", name: "admin-reviews", component: AdminReviewPage, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: "/admin/users", name: "admin-users", component: AdminUsersPage, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: "/admin/prompts", name: "admin-prompts", component: AdminPromptsPage, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: "/admin/reports", name: "admin-reports", component: AdminReportsPage, meta: { requiresAuth: true, requiresAdmin: true } },
-    { path: "/admin/audit-logs", name: "admin-audit-logs", component: AdminAuditLogsPage, meta: { requiresAuth: true, requiresAdmin: true } }
+    { path: "/admin/audit-logs", name: "admin-audit-logs", component: AdminAuditLogsPage, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: "/admin/ai-config", name: "admin-ai-config", component: AdminAIConfigPage, meta: { requiresAuth: true, requiresAdmin: true } }
   ]
 });
 
