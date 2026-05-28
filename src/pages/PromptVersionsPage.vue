@@ -94,6 +94,7 @@ import { useRoute, useRouter } from "vue-router";
 import * as api from "../api/prompts";
 import { ApiError } from "../api/http";
 import type { PromptVersionRecord } from "../api/types";
+import { formatChinaTime } from "../util/time";
 
 const route = useRoute();
 const router = useRouter();
@@ -112,11 +113,7 @@ const manualNoteDraft = ref("");
 const manualSaving = ref(false);
 
 function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("zh-CN");
-  } catch {
-    return iso;
-  }
+  return formatChinaTime(iso);
 }
 
 function showToast(message: string) {

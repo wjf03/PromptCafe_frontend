@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
 import * as ai from "../api/ai";
-import { ApiError } from "../api/http";
+import { friendlyApiMessage } from "../api/errors";
 import type { AIApiKeyStatus, AIGuestQuota } from "../api/ai";
 
 const emit = defineEmits<{
@@ -55,7 +55,7 @@ const aiConfig = reactive({
 });
 
 function apiMessage(e: unknown) {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
+  return friendlyApiMessage(e);
 }
 
 async function loadStatus() {

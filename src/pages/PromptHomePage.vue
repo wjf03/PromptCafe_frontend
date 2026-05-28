@@ -164,6 +164,7 @@ import type { PromptListSortBy, PromptListSortOrder } from "../api/prompts";
 import { ApiError } from "../api/http";
 import type { PromptSummary } from "../api/types";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.vue";
+import { formatChinaTime } from "../util/time";
 
 const route = useRoute();
 const router = useRouter();
@@ -245,11 +246,7 @@ const listActiveId = computed(() => {
 });
 
 function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("zh-CN");
-  } catch {
-    return iso;
-  }
+  return formatChinaTime(iso);
 }
 
 type TitleSeg = { text: string; hit: boolean };

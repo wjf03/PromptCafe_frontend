@@ -227,7 +227,7 @@
                     <label class="fg-label">Temperature</label>
                     <input v-model.number="testForm.temperature" class="fg-input" type="number" min="0" max="2" step="0.1" />
                     <label class="fg-label">Max Tokens</label>
-                    <input v-model.number="testForm.maxTokens" class="fg-input" type="number" min="1" step="1" />
+                    <input v-model.number="testForm.maxTokens" class="fg-input" type="number" min="1" max="16384" step="1" />
                   </div>
                   <div v-if="activeVariables.length" class="test-vars">
                     <div class="label">测试变量</div>
@@ -268,7 +268,42 @@
                     </div>
                     <div v-if="testRecordDetail" class="record-detail">
                       <div class="label">记录详情</div>
-                      <div class="value pre">{{ testRecordDetail.output }}</div>
+                      <div class="record-detail-grid">
+                        <div>
+                          <span class="muted">服务商</span>
+                          <strong>{{ providerLabel(testRecordDetail.provider) }}</strong>
+                        </div>
+                        <div>
+                          <span class="muted">模型</span>
+                          <strong>{{ testRecordDetail.model || "-" }}</strong>
+                        </div>
+                        <div>
+                          <span class="muted">耗时</span>
+                          <strong>{{ testRecordDetail.latencyMs || 0 }} ms</strong>
+                        </div>
+                        <div>
+                          <span class="muted">Token</span>
+                          <strong>{{ tokenUsageText(testRecordDetail.tokenUsage) }}</strong>
+                        </div>
+                      </div>
+                      <div class="record-detail-block">
+                        <div class="label sm">输入变量</div>
+                        <div v-if="Object.keys(testRecordDetail.inputVariables ?? {}).length" class="var-kv-list">
+                          <div v-for="[key, value] in Object.entries(testRecordDetail.inputVariables ?? {})" :key="key">
+                            <span>{{ key }}</span>
+                            <strong>{{ value || "（空）" }}</strong>
+                          </div>
+                        </div>
+                        <div v-else class="muted">无输入变量</div>
+                      </div>
+                      <div class="record-detail-block">
+                        <div class="label sm">渲染 Prompt</div>
+                        <div class="value pre">{{ testRecordDetail.renderedPrompt || "（空）" }}</div>
+                      </div>
+                      <div class="record-detail-block">
+                        <div class="label sm">模型输出</div>
+                        <div class="value pre">{{ testRecordDetail.output || "（空）" }}</div>
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -366,6 +401,7 @@ import { useRoute, useRouter } from "vue-router";
 import * as api from "../api/prompts";
 import * as ai from "../api/ai";
 import * as community from "../api/community";
+import { friendlyApiMessage } from "../api/errors";
 import { ApiError } from "../api/http";
 import type { PromptDetail, PromptVariableDef } from "../api/types";
 import type {
@@ -377,6 +413,7 @@ import type {
 } from "../api/ai";
 import AIConfigPanel from "../components/AIConfigPanel.vue";
 import { markdownToSafeHtml } from "../util/markdown";
+import { formatChinaTime } from "../util/time";
 
 const route = useRoute();
 const router = useRouter();
@@ -446,7 +483,7 @@ const testForm = reactive({
   provider: "openai" as ai.AIProvider,
   model: "",
   temperature: 0.7,
-  maxTokens: 1000
+  maxTokens: 4096
 });
 
 const shareForm = reactive({
@@ -466,6 +503,24 @@ const activeVariables = computed(() => (mode.value === "view" ? detail.value?.va
 const currentModelOptions = computed(() => {
   return aiModels.value.find((item) => item.provider === testForm.provider)?.models ?? [];
 });
+
+function providerLabel(provider?: string | null) {
+  const labels: Record<string, string> = {
+    openai: "OpenAI",
+    deepseek: "DeepSeek",
+    anthropic: "Anthropic",
+    custom: "自定义"
+  };
+  return provider ? labels[provider] ?? provider : "-";
+}
+
+function tokenUsageText(usage?: ai.AITokenUsage | null) {
+  if (!usage) return "-";
+  const total = usage.totalTokens ?? 0;
+  const prompt = usage.promptTokens ?? 0;
+  const completion = usage.completionTokens ?? 0;
+  return `总计 ${total}，输入 ${prompt}，输出 ${completion}`;
+}
 
 function goToVersionsPage() {
   if (!detail.value) return;
@@ -514,11 +569,7 @@ function onResizeEnd() {
 }
 
 function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("zh-CN");
-  } catch {
-    return iso;
-  }
+  return formatChinaTime(iso);
 }
 
 function addFormTag() {
@@ -543,6 +594,13 @@ function varsToMap(vars: PromptVariableDef[]): Record<string, string> {
     m[v.name.trim()] = (v.value ?? "").toString();
   }
   return m;
+}
+
+function previewVariablesMap(vars: PromptVariableDef[]): Record<string, string> {
+  if (aiPanel.value === "test") {
+    return { ...testVariables };
+  }
+  return varsToMap(vars);
 }
 
 async function loadDetail(id: string) {
@@ -747,7 +805,7 @@ async function previewFromDetail() {
     const r = await api.renderPrompt({
       systemPrompt: detail.value.systemPrompt ?? null,
       userPrompt: detail.value.userPrompt,
-      variables: varsToMap(detail.value.variables ?? [])
+      variables: previewVariablesMap(detail.value.variables ?? [])
     });
     applyRenderResult(r.renderedSystemPrompt, r.renderedUserPrompt);
   } catch (e) {
@@ -770,7 +828,7 @@ async function previewFromForm() {
 }
 
 function apiMessage(e: unknown) {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
+  return friendlyApiMessage(e);
 }
 
 function activePromptId() {
@@ -810,6 +868,19 @@ async function loadAiModels() {
   }
 }
 
+async function prepareAiTestPanel() {
+  try {
+    const status = await ai.getApiKeyStatus();
+    if (status.configured && status.provider) {
+      testForm.provider = status.provider;
+    }
+  } catch {
+    // The test request itself will surface configuration errors with a clearer message.
+  }
+  await loadAiModels();
+  await loadTestRecords();
+}
+
 function closeAiPanel() {
   aiPanel.value = null;
 }
@@ -837,8 +908,7 @@ function openAiTest() {
   aiPanel.value = "test";
   sharePanelOpen.value = false;
   resetTestVariables();
-  void loadAiModels();
-  void loadTestRecords();
+  void prepareAiTestPanel();
 }
 
 async function runPolish() {
@@ -1840,13 +1910,65 @@ onUnmounted(() => {
 }
 .record-detail {
   margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e2e6f0;
+  border-radius: 10px;
+  background: #fff;
+}
+.record-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.record-detail-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.record-detail-grid strong {
+  color: #1f2937;
+  font-size: 13px;
+  word-break: break-word;
+}
+.record-detail-block {
+  margin-top: 12px;
+}
+.label.sm {
+  font-size: 12px;
+}
+.var-kv-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #e2e6f0;
+  border-radius: 10px;
+  background: #fbfcff;
+}
+.var-kv-list > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+.var-kv-list span {
+  color: #5b6475;
+  word-break: break-word;
+}
+.var-kv-list strong {
+  color: #1f2937;
+  font-weight: 600;
+  word-break: break-word;
 }
 @media (max-width: 960px) {
   .preview-cols {
     grid-template-columns: 1fr;
   }
   .ai-result-grid,
+  .record-detail-grid,
   .record-item,
+  .var-kv-list > div,
   .test-var-row {
     grid-template-columns: 1fr;
   }

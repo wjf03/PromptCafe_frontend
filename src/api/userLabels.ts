@@ -1,4 +1,5 @@
 import type { AuditTargetType, CommunityPromptStatus, CommunityReportStatus, PromptVisibility, Role, UserStatus } from "./types";
+import { formatChinaTime } from "../util/time";
 
 export function roleLabel(v?: Role | null): string {
   return v === "admin" ? "管理员" : "用户";
@@ -42,12 +43,7 @@ export function auditTargetLabel(v?: AuditTargetType | null): string {
 }
 
 export function formatTime(iso?: string | null): string {
-  if (!iso) return "-";
-  try {
-    return new Date(iso).toLocaleString("zh-CN");
-  } catch {
-    return iso;
-  }
+  return formatChinaTime(iso);
 }
 
 export function authorName(author?: { username?: string; nickname?: string | null; email?: string } | null): string {

@@ -43,6 +43,24 @@ export class ApiError extends Error {
   }
 }
 
+function readableDetail(detail: unknown): string | undefined {
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return undefined;
+  const parts = detail
+    .map((item) => {
+      if (!item || typeof item !== "object") return "";
+      const entry = item as { loc?: unknown[]; msg?: unknown };
+      const msg = typeof entry.msg === "string" ? entry.msg : "";
+      const loc = Array.isArray(entry.loc)
+        ? entry.loc.filter((part) => part !== "body").join(".")
+        : "";
+      if (!msg) return "";
+      return loc ? `${loc}: ${msg}` : msg;
+    })
+    .filter(Boolean);
+  return parts.length ? parts.join("; ") : undefined;
+}
+
 function redirectOnUnauthorized(path: string) {
   if (typeof window === "undefined") return;
   const publicPath = window.location.pathname === "/login" || window.location.pathname === "/register";
@@ -81,7 +99,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     error?: ApiErrorBody | null;
     code?: string | number;
     message?: string;
-    detail?: string;
+    detail?: unknown;
   };
 
   if (envelope.error) {
@@ -102,7 +120,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       throw new ApiError(res.status, {
         code: envelope.code ?? res.status,
         message: envelope.message ?? "请求失败",
-        detail: envelope.detail
+        detail: readableDetail(envelope.detail)
       });
     }
     return envelope.data as T;
@@ -113,9 +131,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       clearToken();
       redirectOnUnauthorized(path);
     }
+    const detail = readableDetail(envelope.detail);
     throw new ApiError(res.status, {
       code: "HTTP_ERROR",
-      message: `请求失败 (${res.status})`
+      message: detail || `请求失败 (${res.status})`,
+      detail
     });
   }
 

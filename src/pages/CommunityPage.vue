@@ -216,6 +216,7 @@ import type {
   ReviewStatus
 } from "../api/community";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.vue";
+import { formatChinaTime } from "../util/time";
 
 const items = ref<CommunityPromptListItem[]>([]);
 const tags = ref<CommunityTagItem[]>([]);
@@ -257,11 +258,7 @@ function showToast(message: string) {
 }
 
 function formatTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("zh-CN");
-  } catch {
-    return iso;
-  }
+  return formatChinaTime(iso);
 }
 
 function apiMessage(e: unknown) {
