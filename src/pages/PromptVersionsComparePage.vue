@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import * as api from "../api/prompts";
 import { ApiError } from "../api/http";
@@ -62,6 +62,7 @@ import { alignTextByLines, type AlignedLineRow } from "../util/lineDiff";
 
 const route = useRoute();
 const router = useRouter();
+const promptCafeToast = inject<(message: string, durationMs?: number) => void>("promptCafeToast", () => {});
 
 const promptId = computed(() => String(route.params.id ?? "").trim());
 const fromVN = computed(() => parseInt(String(route.query.from ?? ""), 10));
@@ -71,6 +72,24 @@ const promptTitle = ref("");
 const diffData = ref<PromptVersionDiffData | null>(null);
 const loading = ref(false);
 const errorMsg = ref("");
+
+function showToast(message: string) {
+  promptCafeToast(message, 2400);
+}
+
+async function handleAuthzError(e: unknown): Promise<boolean> {
+  if (!(e instanceof ApiError)) return false;
+  if (e.status === 401) {
+    await router.replace({ path: "/login", query: { redirect: route.fullPath } });
+    return true;
+  }
+  if (e.status === 403) {
+    showToast("无权限访问该 Prompt 的版本对比");
+    await router.replace({ name: "home-main", query: { denied: "versions" } });
+    return true;
+  }
+  return false;
+}
 
 const pairLabel = computed(() => {
   if (!diffData.value) return "";
@@ -160,7 +179,8 @@ async function loadPromptTitle() {
   try {
     const d = await api.getPrompt(id);
     promptTitle.value = d.title;
-  } catch {
+  } catch (e) {
+    if (await handleAuthzError(e)) return;
     promptTitle.value = "";
   }
 }
@@ -185,6 +205,7 @@ async function loadDiff() {
   try {
     diffData.value = await api.diffPromptVersions(id, lo, hi);
   } catch (e) {
+    if (await handleAuthzError(e)) return;
     errorMsg.value = e instanceof ApiError ? e.message : String(e);
   } finally {
     loading.value = false;

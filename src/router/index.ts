@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { getAuthMe, getStoredUser, isAuthenticated } from "../api/auth";
+import * as promptApi from "../api/prompts";
+import { ApiError } from "../api/http";
 import CommunityPage from "../pages/CommunityPage.vue";
 import LoginPage from "../pages/LoginPage.vue";
 import PromptHomePage from "../pages/PromptHomePage.vue";
@@ -75,6 +77,25 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresAdmin && user.role !== "admin") {
     return "/";
+  }
+
+  if (to.name === "prompt-versions" || to.name === "prompt-versions-compare") {
+    const promptId = String(to.params.id ?? "").trim();
+    if (!promptId) return { name: "home-main" };
+    try {
+      // Route-level check prevents direct URL access from showing version content.
+      await promptApi.listPromptVersions(promptId);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 401) {
+          return { path: "/login", query: { redirect: to.fullPath } };
+        }
+        if (e.status === 403) {
+          return { name: "home-main", query: { denied: "versions" } };
+        }
+      }
+      return { name: "home-main", query: { denied: "versions" } };
+    }
   }
 
   return true;

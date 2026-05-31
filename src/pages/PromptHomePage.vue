@@ -200,6 +200,17 @@ function showToast(message: string, durationMs = 2800) {
   }, durationMs);
 }
 
+function consumeDeniedQueryNotice() {
+  const denied = typeof route.query.denied === "string" ? route.query.denied.trim() : "";
+  if (!denied) return;
+  if (denied === "versions") {
+    showToast("无权限访问该 Prompt 的版本页，已返回安全页面");
+  }
+  const nextQuery = { ...route.query };
+  delete nextQuery.denied;
+  void router.replace({ query: nextQuery });
+}
+
 const workspaceRef = ref<HTMLElement | null>(null);
 const listWidthPx = ref(240);
 const resizeAxis = ref<"list" | null>(null);
@@ -363,10 +374,18 @@ provide("refreshPromptList", refreshList);
 provide("promptCafeToast", showToast);
 
 onMounted(() => {
+  consumeDeniedQueryNotice();
   void refreshList();
   window.addEventListener("mousemove", onResizeMove);
   window.addEventListener("mouseup", onResizeEnd);
 });
+
+watch(
+  () => route.query.denied,
+  () => {
+    consumeDeniedQueryNotice();
+  }
+);
 
 onUnmounted(() => {
   window.removeEventListener("mousemove", onResizeMove);

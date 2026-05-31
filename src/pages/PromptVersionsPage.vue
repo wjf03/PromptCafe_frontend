@@ -120,6 +120,20 @@ function showToast(message: string) {
   promptCafeToast(message, 2400);
 }
 
+async function handleAuthzError(e: unknown): Promise<boolean> {
+  if (!(e instanceof ApiError)) return false;
+  if (e.status === 401) {
+    await router.replace({ path: "/login", query: { redirect: route.fullPath } });
+    return true;
+  }
+  if (e.status === 403) {
+    showToast("无权限访问该 Prompt 的历史版本");
+    await router.replace({ name: "home-main", query: { denied: "versions" } });
+    return true;
+  }
+  return false;
+}
+
 function goBack() {
   const id = promptId.value;
   if (id) void router.push({ name: "home-main", query: { prompt: id } });
@@ -133,7 +147,8 @@ async function loadPromptTitle() {
     const d = await api.getPrompt(id);
     promptTitle.value = d.title;
     promptCurrentVersion.value = d.currentVersion;
-  } catch {
+  } catch (e) {
+    if (await handleAuthzError(e)) return;
     promptTitle.value = "";
     promptCurrentVersion.value = null;
   }
@@ -159,6 +174,7 @@ async function loadVersions() {
     const list = await api.listPromptVersions(id);
     rows.value = [...list].sort((a, b) => b.versionNumber - a.versionNumber);
   } catch (e) {
+    if (await handleAuthzError(e)) return;
     errorMsg.value = e instanceof ApiError ? e.message : String(e);
     rows.value = [];
   } finally {
@@ -207,6 +223,7 @@ async function runRollback(row: PromptVersionRecord) {
     showToast("已回溯");
     await loadAll();
   } catch (e) {
+    if (await handleAuthzError(e)) return;
     errorMsg.value = e instanceof ApiError ? e.message : String(e);
   }
 }
@@ -223,6 +240,7 @@ async function runManualSnapshot() {
     manualNoteDraft.value = "";
     await loadAll();
   } catch (e) {
+    if (await handleAuthzError(e)) return;
     errorMsg.value = e instanceof ApiError ? e.message : String(e);
   } finally {
     manualSaving.value = false;
