@@ -207,11 +207,13 @@
                 <div v-if="testResult" class="ai-result-grid">
                   <div>
                     <div class="label">模型输出</div>
-                    <div class="value pre">{{ testResult.output }}</div>
+                    <div v-if="!testResult.output?.trim()" class="value pre muted">（空）</div>
+                    <div v-else class="value preview-md" v-html="testResultOutputHtml" />
                   </div>
                   <div>
                     <div class="label">渲染 Prompt</div>
-                    <div class="value pre">{{ testResult.renderedPrompt }}</div>
+                    <div v-if="!testResult.renderedPrompt?.trim()" class="value pre muted">（空）</div>
+                    <div v-else class="value preview-md" v-html="testResultRenderedPromptHtml" />
                   </div>
                 </div>
               </template>
@@ -301,6 +303,7 @@ import type {
   ReviewStatus
 } from "../api/community";
 import WorkspaceLayout from "../layouts/WorkspaceLayout.vue";
+import { markdownToSafeHtml } from "../util/markdown";
 import { formatChinaTime } from "../util/time";
 
 const items = ref<CommunityPromptListItem[]>([]);
@@ -326,6 +329,10 @@ const aiLoading = ref(false);
 const guestConfig = ref<AIGuestConfig | null>(null);
 const polishResult = ref<AIPolishResult | null>(null);
 const testResult = ref<AITestResult | null>(null);
+
+const testResultOutputHtml = computed(() => markdownToSafeHtml(testResult.value?.output ?? ""));
+const testResultRenderedPromptHtml = computed(() => markdownToSafeHtml(testResult.value?.renderedPrompt ?? ""));
+
 const myShares = ref<MyShareItem[]>([]);
 const shareStatusFilter = ref<ReviewStatus | "">("");
 const reportForm = reactive({
@@ -1016,6 +1023,78 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
   gap: 12px;
   margin-top: 12px;
+}
+.preview-md {
+  margin: 0;
+  min-height: 72px;
+  overflow: auto;
+  padding: 10px 12px;
+  background: #f7f8fc;
+  border: 1px solid #e2e6f0;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #374151;
+}
+.preview-md :deep(p) {
+  margin: 0 0 0.6em;
+}
+.preview-md :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.preview-md :deep(h1),
+.preview-md :deep(h2),
+.preview-md :deep(h3),
+.preview-md :deep(h4) {
+  margin: 0.75em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.preview-md :deep(h1) {
+  font-size: 1.25rem;
+}
+.preview-md :deep(h2) {
+  font-size: 1.1rem;
+}
+.preview-md :deep(ul),
+.preview-md :deep(ol) {
+  margin: 0.4em 0;
+  padding-left: 1.35em;
+}
+.preview-md :deep(li) {
+  margin: 0.2em 0;
+}
+.preview-md :deep(code) {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.92em;
+  background: #e5e7eb;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.preview-md :deep(pre) {
+  margin: 0.5em 0;
+  padding: 10px 12px;
+  overflow: auto;
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.preview-md :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.preview-md :deep(a) {
+  color: #2563eb;
+  word-break: break-all;
+}
+.preview-md :deep(blockquote) {
+  margin: 0.5em 0;
+  padding-left: 12px;
+  border-left: 3px solid #cbd5e1;
+  color: #64748b;
 }
 .suggestion-list {
   margin: 0;
