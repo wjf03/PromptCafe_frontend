@@ -32,14 +32,18 @@ export function reportStatusLabel(v?: CommunityReportStatus | null): string {
   return v ? map[v] : "-";
 }
 
-export function auditTargetLabel(v?: AuditTargetType | null): string {
+export function auditTargetLabel(v?: AuditTargetType | string | null): string {
   const map: Record<AuditTargetType, string> = {
     user: "用户",
     prompt: "Prompt",
     community_prompt: "社区 Prompt",
-    report: "举报"
+    community_report: "社区举报",
+    auth: "鉴权",
+    ai_api_key: "用户 AI 配置",
+    system_ai_config: "系统 AI 配置"
   };
-  return v ? map[v] : "-";
+  if (!v) return "-";
+  return map[v as AuditTargetType] ?? v;
 }
 
 export function formatTime(iso?: string | null): string {

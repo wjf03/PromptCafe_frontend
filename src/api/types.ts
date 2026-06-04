@@ -9,7 +9,14 @@ export type UserStatus = "active" | "disabled";
 export type PromptVisibility = "private" | "public";
 export type CommunityPromptStatus = "pending" | "approved" | "rejected" | "removed";
 export type CommunityReportStatus = "pending" | "processed" | "rejected";
-export type AuditTargetType = "user" | "prompt" | "community_prompt" | "report";
+export type AuditTargetType =
+  | "user"
+  | "prompt"
+  | "community_prompt"
+  | "community_report"
+  | "auth"
+  | "ai_api_key"
+  | "system_ai_config";
 
 export type PaginationMeta = {
   page: number;

@@ -14,7 +14,10 @@
             <option value="user">用户</option>
             <option value="prompt">Prompt</option>
             <option value="community_prompt">社区 Prompt</option>
-            <option value="report">举报</option>
+            <option value="community_report">社区举报</option>
+            <option value="auth">鉴权</option>
+            <option value="ai_api_key">用户 AI 配置</option>
+            <option value="system_ai_config">系统 AI 配置</option>
           </select>
           <input v-model="filters.targetId" class="list-filter-input narrow" type="text" placeholder="对象 ID" @keydown.enter="reload" />
           <input v-model="filters.startTime" class="list-filter-input narrow" type="datetime-local" />
