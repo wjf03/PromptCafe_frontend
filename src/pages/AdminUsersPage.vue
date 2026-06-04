@@ -81,13 +81,12 @@
             <label class="fg-label">简介</label>
             <textarea v-model="form.bio" class="fg-textarea" rows="3" />
             <label class="fg-label">操作原因</label>
-            <textarea v-model="reason" class="fg-textarea" rows="3" placeholder="禁用、恢复、删除或保存敏感变更时填写" />
+            <textarea v-model="reason" class="fg-textarea" rows="3" placeholder="禁用、恢复或保存敏感变更时填写" />
           </div>
           <footer class="bottom-actions">
             <button type="button" class="primary" :disabled="acting" @click="save">保存</button>
             <button type="button" class="light" :disabled="acting" @click="restore">恢复</button>
             <button type="button" class="danger" :disabled="acting" @click="disable">禁用</button>
-            <button type="button" class="danger" :disabled="acting" @click="remove">删除</button>
           </footer>
         </div>
         <div v-else class="muted center-pad">选择用户查看和管理资料</div>
@@ -232,23 +231,6 @@ async function restore() {
     selected.value = await admin.restoreAdminUser(selected.value.id, r);
     fillForm(selected.value);
     showToast("用户已恢复");
-    await loadList();
-  } catch (e) {
-    errorMsg.value = e instanceof ApiError ? e.message : String(e);
-  } finally {
-    acting.value = false;
-  }
-}
-
-async function remove() {
-  if (!selected.value) return;
-  const r = requireReason("删除用户");
-  if (!r || !confirm(`确定删除用户「${selected.value.username}」？`)) return;
-  acting.value = true;
-  try {
-    await admin.deleteAdminUser(selected.value.id, r);
-    selected.value = null;
-    showToast("用户已删除");
     await loadList();
   } catch (e) {
     errorMsg.value = e instanceof ApiError ? e.message : String(e);

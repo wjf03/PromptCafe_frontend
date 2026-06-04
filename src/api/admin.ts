@@ -98,13 +98,6 @@ export async function updateAdminUser(
   })) as User;
 }
 
-export async function deleteAdminUser(id: string, reason: string): Promise<void> {
-  await apiRequest(`/api/admin/users/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-    body: JSON.stringify({ reason })
-  });
-}
-
 export async function disableAdminUser(id: string, reason: string): Promise<User> {
   return (await apiRequest<User>(`/api/admin/users/${encodeURIComponent(id)}/disable`, {
     method: "PATCH",
