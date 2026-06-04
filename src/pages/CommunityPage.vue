@@ -128,8 +128,8 @@
                 </button>
                 <button v-if="isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="forkCurrent">Fork 到我的 Prompt</button>
                 <button v-if="isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="openReportPanel">举报</button>
-                <button v-if="!isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="openAiPolish">AI 润色</button>
-                <button v-if="!isLoggedIn" type="button" class="light" :disabled="actionLoading" @click="openAiTest">AI 测试</button>
+                <button type="button" class="light" :disabled="actionLoading" @click="openAiPolish">AI 润色</button>
+                <button type="button" class="light" :disabled="actionLoading" @click="openAiTest">AI 测试</button>
                 <button type="button" class="light" @click="copyPromptText">复制内容</button>
               </footer>
             </template>
