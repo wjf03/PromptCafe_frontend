@@ -75,6 +75,7 @@ async function loadStatus() {
     }
     if (quota.status === "fulfilled") guestQuota.value = quota.value;
     if (status.status === "rejected" && quota.status === "rejected") throw status.reason;
+    emit("toast", "刷新成功");
   } catch (e) {
     errorMsg.value = apiMessage(e);
   } finally {
