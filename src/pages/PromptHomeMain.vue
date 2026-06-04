@@ -172,6 +172,24 @@
 
                 <template v-else-if="aiPanel === 'polish'">
                   <div class="form-grid compact-form">
+                    <label class="fg-label">服务商</label>
+                    <select v-model="polishForm.provider" class="fg-input" @change="syncPolishDefaultModel">
+                      <option value="openai">OpenAI</option>
+                      <option value="deepseek">DeepSeek</option>
+                      <option value="anthropic">Anthropic</option>
+                      <option value="custom">自定义</option>
+                    </select>
+                    <label class="fg-label">模型</label>
+                    <input
+                      v-model="polishForm.model"
+                      class="fg-input"
+                      type="text"
+                      list="polish-model-options"
+                      placeholder="选择或输入模型名"
+                    />
+                    <datalist id="polish-model-options">
+                      <option v-for="model in currentPolishModelOptions" :key="model" :value="model" />
+                    </datalist>
                     <label class="fg-label">语气</label>
                     <select v-model="polishForm.tone" class="fg-input">
                       <option value="formal">正式</option>
@@ -474,6 +492,8 @@ const shareLoading = ref(false);
 const shareTagText = ref("");
 
 const polishForm = reactive({
+  provider: "openai" as ai.AIProvider,
+  model: "",
   tone: "formal" as ai.AIPolishTone,
   language: "zh-CN" as ai.AILanguage,
   lengthPreference: "medium" as ai.AILengthPreference
@@ -502,6 +522,10 @@ const activeVariables = computed(() => (mode.value === "view" ? detail.value?.va
 
 const currentModelOptions = computed(() => {
   return aiModels.value.find((item) => item.provider === testForm.provider)?.models ?? [];
+});
+
+const currentPolishModelOptions = computed(() => {
+  return aiModels.value.find((item) => item.provider === polishForm.provider)?.models ?? [];
 });
 
 function providerLabel(provider?: string | null) {
@@ -720,11 +744,9 @@ async function savePrompt() {
       await loadDetail(created.id);
       await router.replace({ name: "home-main", query: { prompt: created.id } });
     } else if (mode.value === "edit" && selectedId.value) {
-      const { tags: _t, ...putBody } = payload;
       const extra: Record<string, unknown> = {};
       if (form.changeNote.trim()) extra.changeNote = form.changeNote.trim();
-      await api.replacePromptTags(selectedId.value, tags);
-      await api.updatePrompt(selectedId.value, { ...putBody, ...extra });
+      await api.updatePrompt(selectedId.value, { ...payload, ...extra });
       showToast("已保存");
       mode.value = "view";
       await refreshPromptList();
@@ -898,6 +920,7 @@ function openAiPolish() {
   aiPanel.value = "polish";
   sharePanelOpen.value = false;
   polishResult.value = null;
+  void prepareAiPolishPanel();
 }
 
 function openAiTest() {
@@ -917,12 +940,18 @@ async function runPolish() {
     errorMsg.value = "没有可润色的用户提示词";
     return;
   }
+  if (!polishForm.model.trim()) {
+    errorMsg.value = "请选择或填写模型";
+    return;
+  }
   aiLoading.value = true;
   errorMsg.value = "";
   try {
     polishResult.value = await ai.polishPrompt({
       promptId: activePromptId(),
       content,
+      provider: polishForm.provider,
+      model: polishForm.model.trim(),
       tone: polishForm.tone,
       language: polishForm.language,
       lengthPreference: polishForm.lengthPreference
@@ -947,6 +976,27 @@ function syncDefaultModel() {
   if (options.length && !options.includes(testForm.model)) {
     testForm.model = options[0];
   }
+}
+
+function syncPolishDefaultModel() {
+  const options = currentPolishModelOptions.value;
+  if (options.length && !options.includes(polishForm.model)) {
+    polishForm.model = options[0];
+  }
+}
+
+async function prepareAiPolishPanel() {
+  try {
+    const status = await ai.getApiKeyStatus();
+    if (status.configured && status.provider) {
+      polishForm.provider = status.provider;
+      polishForm.model = status.defaultModel ?? "";
+    }
+  } catch {
+    // The polish request itself will surface configuration errors with a clearer message.
+  }
+  await loadAiModels();
+  if (!polishForm.model.trim()) syncPolishDefaultModel();
 }
 
 async function runAiTest() {

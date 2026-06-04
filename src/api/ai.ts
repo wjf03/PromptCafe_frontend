@@ -29,6 +29,7 @@ export type AIApiKeyStatus = {
   maskedKey?: string | null;
   provider: AIProvider | null;
   baseUrl?: string | null;
+  defaultModel?: string | null;
   verified: boolean;
   updatedAt?: string | null;
 };
@@ -43,6 +44,8 @@ export type AIPolishResult = {
   optimized: string;
   suggestions: string[];
   latencyMs: number;
+  provider: string;
+  model: string;
 };
 
 export type AITokenUsage = {
@@ -103,6 +106,7 @@ export async function saveApiKey(body: {
   apiKey: string;
   provider: AIProvider;
   baseUrl?: string;
+  defaultModel?: string;
 }): Promise<AIApiKeyStatus> {
   return (await apiRequest<AIApiKeyStatus>("/api/ai/api-key", {
     method: "PUT",
@@ -125,6 +129,8 @@ export async function getModels(): Promise<{ items: AIModelProviderItem[] }> {
 export async function polishPrompt(body: {
   promptId?: string;
   content?: string;
+  provider?: AIProvider;
+  model?: string;
   tone?: AIPolishTone;
   language?: AILanguage;
   lengthPreference?: AILengthPreference;

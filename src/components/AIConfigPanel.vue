@@ -13,6 +13,9 @@
       <label class="fg-label">Base URL</label>
       <input v-model="aiConfig.baseUrl" class="fg-input" type="url" placeholder="可选" />
 
+      <label class="fg-label">默认模型</label>
+      <input v-model="aiConfig.defaultModel" class="fg-input" type="text" placeholder="例如 gpt-4o-mini" />
+
       <label class="fg-label">API Key</label>
       <input v-model="aiConfig.apiKey" class="fg-input" type="password" autocomplete="new-password" />
     </div>
@@ -51,6 +54,7 @@ const guestQuota = ref<AIGuestQuota | null>(null);
 const aiConfig = reactive({
   provider: "openai" as ai.AIProvider,
   baseUrl: "",
+  defaultModel: "",
   apiKey: ""
 });
 
@@ -67,6 +71,7 @@ async function loadStatus() {
       aiKeyStatus.value = status.value;
       aiConfig.provider = status.value.provider ?? aiConfig.provider;
       aiConfig.baseUrl = status.value.baseUrl ?? "";
+      aiConfig.defaultModel = status.value.defaultModel ?? "";
     }
     if (quota.status === "fulfilled") guestQuota.value = quota.value;
     if (status.status === "rejected" && quota.status === "rejected") throw status.reason;
@@ -82,13 +87,18 @@ async function saveConfig() {
     errorMsg.value = "API Key 不能为空";
     return;
   }
+  if (aiConfig.provider === "custom" && !aiConfig.defaultModel.trim()) {
+    errorMsg.value = "自定义服务商必须填写默认模型";
+    return;
+  }
   loading.value = true;
   errorMsg.value = "";
   try {
     aiKeyStatus.value = await ai.saveApiKey({
       provider: aiConfig.provider,
       apiKey: aiConfig.apiKey.trim(),
-      baseUrl: aiConfig.baseUrl.trim() || undefined
+      baseUrl: aiConfig.baseUrl.trim() || undefined,
+      defaultModel: aiConfig.defaultModel.trim() || undefined
     });
     aiConfig.apiKey = "";
     emit("toast", "AI 配置已保存");
