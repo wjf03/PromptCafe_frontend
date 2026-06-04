@@ -172,13 +172,6 @@
 
                 <template v-else-if="aiPanel === 'polish'">
                   <div class="form-grid compact-form">
-                    <label class="fg-label">服务商</label>
-                    <select v-model="polishForm.provider" class="fg-input" @change="syncPolishDefaultModel">
-                      <option value="openai">OpenAI</option>
-                      <option value="deepseek">DeepSeek</option>
-                      <option value="anthropic">Anthropic</option>
-                      <option value="custom">自定义</option>
-                    </select>
                     <label class="fg-label">模型</label>
                     <input
                       v-model="polishForm.model"
