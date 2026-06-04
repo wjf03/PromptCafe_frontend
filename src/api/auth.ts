@@ -1,4 +1,12 @@
-import { apiRequest, clearToken, getRefreshToken, getToken, setRefreshToken, setToken } from "./http";
+import {
+  apiRequest,
+  clearToken,
+  getRefreshToken,
+  getToken,
+  refreshAccessToken,
+  setRefreshToken,
+  setToken
+} from "./http";
 import type { AuthTokenData, User } from "./types";
 
 const USER_KEY = "promptcafe_user";
@@ -73,14 +81,7 @@ export async function register(body: {
 }
 
 export async function refreshToken(): Promise<string> {
-  const refreshTokenValue = getRefreshToken();
-  if (!refreshTokenValue) throw new Error("缺少 refreshToken");
-  const data = (await apiRequest<{ accessToken: string; accessTokenExpiresIn?: number }>("/api/auth/refresh", {
-    method: "POST",
-    body: JSON.stringify({ refreshToken: refreshTokenValue })
-  })) as { accessToken: string; accessTokenExpiresIn?: number };
-  setToken(data.accessToken);
-  return data.accessToken;
+  return refreshAccessToken();
 }
 
 export async function logout(): Promise<void> {

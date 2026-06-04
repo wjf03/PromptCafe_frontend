@@ -64,6 +64,75 @@ function baseUrl(): string {
   return typeof v === "string" && v.length > 0 ? v.replace(/\/$/, "") : "";
 }
 
+function normalizePath(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function isAuthPath(path: string): boolean {
+  const p = normalizePath(path);
+  return p === "/api/auth/login" || p === "/api/auth/register" || p === "/api/auth/refresh";
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function requestNewAccessToken(refreshTokenValue: string): Promise<string | null> {
+  const url = `${baseUrl()}/api/auth/refresh`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: refreshTokenValue })
+    });
+    if (res.status === 204) return null;
+
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      return null;
+    }
+
+    const envelope = json as {
+      data?: { accessToken?: string };
+      code?: string | number;
+      message?: string;
+    };
+
+    if (!("code" in envelope && "message" in envelope)) return null;
+
+    const numericCode = typeof envelope.code === "number" ? envelope.code : Number(envelope.code);
+    if (!res.ok || numericCode >= 400) return null;
+
+    const accessToken = envelope.data?.accessToken;
+    if (typeof accessToken !== "string" || !accessToken) return null;
+
+    setToken(accessToken);
+    return accessToken;
+  } catch {
+    return null;
+  }
+}
+
+/** 用 refresh token 换取新的 access token；并发 401 时共用一个进行中的请求 */
+async function tryRefreshAccessToken(): Promise<string | null> {
+  const refreshTokenValue = getRefreshToken();
+  if (!refreshTokenValue) return null;
+
+  if (!refreshInFlight) {
+    refreshInFlight = requestNewAccessToken(refreshTokenValue).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+/** 供 auth.refreshToken 等显式调用 */
+export async function refreshAccessToken(): Promise<string> {
+  const accessToken = await tryRefreshAccessToken();
+  if (!accessToken) throw new Error("刷新登录态失败，请重新登录");
+  return accessToken;
+}
+
 export class ApiError extends Error {
   readonly code: string | number;
   readonly status: number;
@@ -104,9 +173,54 @@ function redirectOnUnauthorized(path: string) {
   window.location.assign(`/login?redirect=${redirect || encodeURIComponent(path)}`);
 }
 
+type ResponseEnvelope = {
+  data?: unknown;
+  error?: ApiErrorBody | null;
+  code?: string | number;
+  message?: string;
+  detail?: unknown;
+};
+
+function isUnauthorized(status: number, envelope: ResponseEnvelope): boolean {
+  if (status === 401) return true;
+  if ("code" in envelope && "message" in envelope) {
+    const numericCode = typeof envelope.code === "number" ? envelope.code : Number(envelope.code);
+    return numericCode === 401;
+  }
+  return false;
+}
+
+function throwUnauthorized(status: number, body: ApiErrorBody, path: string): never {
+  clearToken();
+  redirectOnUnauthorized(path);
+  throw new ApiError(status, body);
+}
+
+async function handleUnauthorized<T>(
+  path: string,
+  init: RequestInit,
+  authRetried: boolean,
+  status: number,
+  body: ApiErrorBody
+): Promise<T | undefined> {
+  if (!authRetried && !isAuthPath(path) && getRefreshToken()) {
+    const newToken = await tryRefreshAccessToken();
+    if (newToken) return apiRequestWithRetry<T>(path, init, true);
+  }
+  return throwUnauthorized(status, body, path);
+}
+
 /** 兼容 `{ data, error }` 与 `{ code, message, data }`；成功返回 `data`；204 无体返回 `undefined` */
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T | undefined> {
-  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  return apiRequestWithRetry<T>(path, init, false);
+}
+
+async function apiRequestWithRetry<T>(
+  path: string,
+  init: RequestInit,
+  authRetried: boolean
+): Promise<T | undefined> {
+  const url = `${baseUrl()}${normalizePath(path)}`;
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -131,18 +245,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     throw new ApiError(res.status, { code: "PARSE_ERROR", message: "响应不是合法 JSON" });
   }
 
-  const envelope = json as {
-    data?: unknown;
-    error?: ApiErrorBody | null;
-    code?: string | number;
-    message?: string;
-    detail?: unknown;
-  };
+  const envelope = json as ResponseEnvelope;
 
   if (envelope.error) {
-    if (res.status === 401) {
-      clearToken();
-      redirectOnUnauthorized(path);
+    if (isUnauthorized(res.status, envelope)) {
+      return handleUnauthorized<T>(path, init, authRetried, res.status, envelope.error);
     }
     throw new ApiError(res.status, envelope.error);
   }
@@ -150,9 +257,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if ("code" in envelope && "message" in envelope) {
     const numericCode = typeof envelope.code === "number" ? envelope.code : Number(envelope.code);
     if (!res.ok || numericCode >= 400) {
-      if (res.status === 401 || numericCode === 401) {
-        clearToken();
-        redirectOnUnauthorized(path);
+      if (isUnauthorized(res.status, envelope)) {
+        return handleUnauthorized<T>(path, init, authRetried, res.status, {
+          code: envelope.code ?? res.status,
+          message: envelope.message ?? "请求失败",
+          detail: readableDetail(envelope.detail)
+        });
       }
       throw new ApiError(res.status, {
         code: envelope.code ?? res.status,
@@ -164,9 +274,12 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   if (!res.ok) {
-    if (res.status === 401) {
-      clearToken();
-      redirectOnUnauthorized(path);
+    if (isUnauthorized(res.status, envelope)) {
+      return handleUnauthorized<T>(path, init, authRetried, res.status, {
+        code: "HTTP_ERROR",
+        message: readableDetail(envelope.detail) || `请求失败 (${res.status})`,
+        detail: readableDetail(envelope.detail)
+      });
     }
     const detail = readableDetail(envelope.detail);
     throw new ApiError(res.status, {
