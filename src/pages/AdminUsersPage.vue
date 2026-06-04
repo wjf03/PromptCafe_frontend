@@ -25,6 +25,7 @@
           <thead>
             <tr>
               <th>用户名</th>
+              <th>昵称</th>
               <th>邮箱</th>
               <th>角色</th>
               <th>状态</th>
@@ -33,7 +34,8 @@
           </thead>
           <tbody>
             <tr v-for="user in items" :key="user.id" :class="{ active: selected?.id === user.id }" @click="openDetail(user.id)">
-              <td>{{ user.nickname || user.username }}</td>
+              <td>{{ user.username }}</td>
+              <td>{{ user.nickname?.trim() || "—" }}</td>
               <td>{{ user.email }}</td>
               <td><span class="status-badge">{{ roleLabel(user.role) }}</span></td>
               <td><span class="status-badge" :class="{ danger: user.status === 'disabled' }">{{ userStatusLabel(user.status) }}</span></td>
@@ -52,8 +54,11 @@
       <aside class="admin-panel detail-card">
         <div v-if="detailLoading" class="muted center-pad">加载用户详情…</div>
         <div v-else-if="selected">
-          <h2>{{ selected.nickname || selected.username }}</h2>
-          <p class="meta">{{ selected.email }} · {{ formatTime(selected.createdAt) }} 创建</p>
+          <h2>{{ selected.username }}</h2>
+          <p class="meta">
+            {{ selected.nickname?.trim() ? `${selected.nickname} · ` : "" }}{{ selected.email }} ·
+            {{ formatTime(selected.createdAt) }} 创建
+          </p>
           <div class="form-grid compact-form">
             <label class="fg-label">用户名</label>
             <input v-model="form.username" class="fg-input" type="text" />
