@@ -4,25 +4,46 @@ const TOKEN_KEY = "promptcafe_token";
 const REFRESH_TOKEN_KEY = "promptcafe_refresh_token";
 const GUEST_SESSION_KEY = "promptcafe_guest_session_id";
 
+/** 登录态持久化到 localStorage，便于新标签页与浏览器重启后保持登录 */
+function readPersistedAuth(key: string): string | null {
+  const fromLocal = localStorage.getItem(key);
+  if (fromLocal) return fromLocal;
+  const fromSession = sessionStorage.getItem(key);
+  if (!fromSession) return null;
+  localStorage.setItem(key, fromSession);
+  sessionStorage.removeItem(key);
+  return fromSession;
+}
+
+function writePersistedAuth(key: string, value: string) {
+  localStorage.setItem(key, value);
+  sessionStorage.removeItem(key);
+}
+
+function removePersistedAuth(key: string) {
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+}
+
 export function getToken(): string | null {
-  return sessionStorage.getItem(TOKEN_KEY);
+  return readPersistedAuth(TOKEN_KEY);
 }
 
 export function setToken(token: string) {
-  sessionStorage.setItem(TOKEN_KEY, token);
+  writePersistedAuth(TOKEN_KEY, token);
 }
 
 export function getRefreshToken(): string | null {
-  return sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  return readPersistedAuth(REFRESH_TOKEN_KEY);
 }
 
 export function setRefreshToken(token: string) {
-  sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
+  writePersistedAuth(REFRESH_TOKEN_KEY, token);
 }
 
 export function clearToken() {
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  removePersistedAuth(TOKEN_KEY);
+  removePersistedAuth(REFRESH_TOKEN_KEY);
 }
 
 export function getGuestSessionId(): string {

@@ -3,23 +3,36 @@ import type { AuthTokenData, User } from "./types";
 
 const USER_KEY = "promptcafe_user";
 
+function readStoredUserRaw(): string | null {
+  const fromLocal = localStorage.getItem(USER_KEY);
+  if (fromLocal) return fromLocal;
+  const fromSession = sessionStorage.getItem(USER_KEY);
+  if (!fromSession) return null;
+  localStorage.setItem(USER_KEY, fromSession);
+  sessionStorage.removeItem(USER_KEY);
+  return fromSession;
+}
+
 export function getStoredUser(): User | null {
-  const raw = sessionStorage.getItem(USER_KEY);
+  const raw = readStoredUserRaw();
   if (!raw) return null;
   try {
     return JSON.parse(raw) as User;
   } catch {
+    localStorage.removeItem(USER_KEY);
     sessionStorage.removeItem(USER_KEY);
     return null;
   }
 }
 
 export function setStoredUser(user: User) {
-  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  sessionStorage.removeItem(USER_KEY);
 }
 
 export function clearSession() {
   clearToken();
+  localStorage.removeItem(USER_KEY);
   sessionStorage.removeItem(USER_KEY);
 }
 

@@ -55,9 +55,9 @@ async function mockApi(page: Page) {
   let favoriteActive = false;
 
   await page.addInitScript((storedUser) => {
-    sessionStorage.setItem("promptcafe_token", "test-token");
-    sessionStorage.setItem("promptcafe_refresh_token", "refresh-token");
-    sessionStorage.setItem("promptcafe_user", JSON.stringify(storedUser));
+    localStorage.setItem("promptcafe_token", "test-token");
+    localStorage.setItem("promptcafe_refresh_token", "refresh-token");
+    localStorage.setItem("promptcafe_user", JSON.stringify(storedUser));
   }, user);
 
   await page.route("**/api/**", async (route) => {

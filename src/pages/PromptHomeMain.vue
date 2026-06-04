@@ -56,6 +56,15 @@
                   <div class="value pre">{{ detail.userPrompt }}</div>
                 </div>
 
+                <div v-if="detail.variables?.length" class="field">
+                  <div class="label">变量</div>
+                  <div class="community-vars">
+                    <span v-for="v in detail.variables" :key="v.name" class="filter-tag-chip">
+                      {{ v.name }} / {{ v.type }}{{ v.required ? " / 必填" : "" }}
+                    </span>
+                  </div>
+                </div>
+
                 <footer class="bottom-actions">
                   <button type="button" class="primary ghost" @click="copyFullText">复制全文</button>
                   <button type="button" class="light" @click="previewFromDetail">预览渲染</button>
@@ -1454,6 +1463,11 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
+}
+.community-vars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .filter-tag-chip {
   display: inline-flex;
