@@ -264,11 +264,13 @@
                   <div v-if="testResult" class="ai-result-grid">
                     <div>
                       <div class="label">模型输出</div>
-                      <div class="value pre">{{ testResult.output }}</div>
+                      <div v-if="!testResult.output?.trim()" class="value pre muted">（空）</div>
+                      <div v-else class="value preview-md" v-html="testResultOutputHtml" />
                     </div>
                     <div>
                       <div class="label">渲染 Prompt</div>
-                      <div class="value pre">{{ testResult.renderedPrompt }}</div>
+                      <div v-if="!testResult.renderedPrompt?.trim()" class="value pre muted">（空）</div>
+                      <div v-else class="value preview-md" v-html="testResultRenderedPromptHtml" />
                     </div>
                   </div>
                   <div v-if="testRecords.length" class="ai-records">
@@ -318,11 +320,13 @@
                       </div>
                       <div class="record-detail-block">
                         <div class="label sm">渲染 Prompt</div>
-                        <div class="value pre">{{ testRecordDetail.renderedPrompt || "（空）" }}</div>
+                        <div v-if="!testRecordDetail.renderedPrompt?.trim()" class="value pre muted">（空）</div>
+                        <div v-else class="value preview-md" v-html="testRecordRenderedPromptHtml" />
                       </div>
                       <div class="record-detail-block">
                         <div class="label sm">模型输出</div>
-                        <div class="value pre">{{ testRecordDetail.output || "（空）" }}</div>
+                        <div v-if="!testRecordDetail.output?.trim()" class="value pre muted">（空）</div>
+                        <div v-else class="value preview-md" v-html="testRecordOutputHtml" />
                       </div>
                     </div>
                   </div>
@@ -488,6 +492,11 @@ const polishResult = ref<AIPolishResult | null>(null);
 const testResult = ref<AITestResult | null>(null);
 const testRecords = ref<AITestRecordListItem[]>([]);
 const testRecordDetail = ref<AITestRecordDetail | null>(null);
+
+const testResultOutputHtml = computed(() => markdownToSafeHtml(testResult.value?.output ?? ""));
+const testResultRenderedPromptHtml = computed(() => markdownToSafeHtml(testResult.value?.renderedPrompt ?? ""));
+const testRecordOutputHtml = computed(() => markdownToSafeHtml(testRecordDetail.value?.output ?? ""));
+const testRecordRenderedPromptHtml = computed(() => markdownToSafeHtml(testRecordDetail.value?.renderedPrompt ?? ""));
 const testVariables = reactive<Record<string, string>>({});
 const sharePanelOpen = ref(false);
 const shareLoading = ref(false);
